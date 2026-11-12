@@ -4,12 +4,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
 <style>
-/* Layout: 上に病棟名と対象月の帯、その下のタブで「勤務表／希望入力／スタッフ／配置ルール」を切り替える。勤務表は看護師×日付の格子を横スクロールで見る */
+/* Layout: 上に病棟の切替と対象月の帯、その下のタブで「勤務表／希望・指定／スタッフ／病棟プロファイル」を切り替える。勤務表は職員×日付の格子を横スクロールで見る */
 :root{
   --bg:#f3f5f4; --surface:#ffffff; --surface-2:#eef2f1; --ink:#1a2928; --muted:#5a6b69; --line:#d5dddb; --line-strong:#aebcb9;
   --accent:#0d6570; --accent-ink:#ffffff; --accent-soft:#d9eeee;
   --day:#fbe6b4; --day-ink:#5e4100; --night:#2e3d7c; --night-ink:#ffffff; --ake:#e2e0f1; --ake-ink:#46416e;
   --sun:#b3413a; --sat:#2d5ca6; --warn:#a46200; --warn-soft:#fff0d3; --bad:#b0261e; --bad-soft:#fce3df; --ok:#2b7a4c; --ok-soft:#ddf1e5;
+  --care:#6a4c93; --care-soft:#efe8f7;
   --font-display:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
   --font-body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
   --radius:8px;
@@ -19,12 +20,14 @@
   --accent:#5ab8bf; --accent-ink:#06282b; --accent-soft:#163a3d;
   --day:#55420f; --day-ink:#ffe3a3; --night:#4053a8; --night-ink:#ffffff; --ake:#33304c; --ake-ink:#d4cff4;
   --sun:#ef8b81; --sat:#8fb4f2; --warn:#f0b24c; --warn-soft:#3a2b0e; --bad:#f28b82; --bad-soft:#3d1915; --ok:#72cf98; --ok-soft:#12301f;
+  --care:#c6a8ee; --care-soft:#2c2340;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111918; --surface:#192322; --surface-2:#1f2b2a; --ink:#e2eae8; --muted:#98a9a6; --line:#2b3938; --line-strong:#41524f;
   --accent:#5ab8bf; --accent-ink:#06282b; --accent-soft:#163a3d;
   --day:#55420f; --day-ink:#ffe3a3; --night:#4053a8; --night-ink:#ffffff; --ake:#33304c; --ake-ink:#d4cff4;
   --sun:#ef8b81; --sat:#8fb4f2; --warn:#f0b24c; --warn-soft:#3a2b0e; --bad:#f28b82; --bad-soft:#3d1915; --ok:#72cf98; --ok-soft:#12301f;
+  --care:#c6a8ee; --care-soft:#2c2340;
   color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -39,7 +42,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .band{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.inner{max-width:1240px;margin:0 auto}
+.inner{max-width:1280px;margin:0 auto}
 .top{background:var(--surface);border-bottom:1px solid var(--line)}
 .top .inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
@@ -48,8 +51,10 @@ button,input,select,textarea{font:inherit;color:inherit}
   repeating-linear-gradient(90deg,var(--accent-soft) 0 7px,var(--surface) 7px 9px) 0 100%/100% 62% no-repeat;border:1px solid var(--line-strong)}
 .brand h1{font-size:1.15rem}
 .brand .sub{font-size:.78rem;color:var(--muted)}
+.pickers{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .month-pick{display:flex;align-items:center;gap:6px}
-.month-pick input{border:1px solid var(--line-strong);background:var(--surface);border-radius:6px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.pickers input,.pickers select{border:1px solid var(--line-strong);background:var(--surface);border-radius:6px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.pickers select{font-weight:700}
 .icon-btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:6px;width:34px;height:34px;cursor:pointer;font-size:1.1rem;line-height:1}
 .icon-btn:hover{background:var(--surface-2)}
 .tabs{display:flex;gap:2px;overflow-x:auto}
@@ -57,7 +62,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .tab .role{font-size:.7rem;font-weight:400;margin-left:4px;color:var(--muted)}
 
-main.band .inner{padding-block:20px 80px;display:flex;flex-direction:column;gap:16px}
+main.band .inner{padding-block:20px 90px;display:flex;flex-direction:column;gap:16px}
 .banner{background:var(--warn-soft);color:var(--ink);border-bottom:1px solid var(--line)}
 .banner .inner{padding-block:8px;font-size:.85rem}
 
@@ -72,7 +77,8 @@ main.band .inner{padding-block:20px 80px;display:flex;flex-direction:column;gap:
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn.small{padding:4px 10px;font-size:.82rem}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.tiny{padding:1px 8px;font-size:.78rem;font-weight:400}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .link{appearance:none;border:0;background:none;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;font-weight:700}
 
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 10px;font-size:.78rem;font-weight:700;border:1px solid var(--line-strong);background:var(--surface-2);white-space:nowrap}
@@ -80,6 +86,7 @@ main.band .inner{padding-block:20px 80px;display:flex;flex-direction:column;gap:
 .chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .chip.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
 .chip.accent{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.care{background:var(--care-soft);color:var(--care);border-color:transparent}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 
 .meter{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
@@ -91,21 +98,23 @@ input[type=number]{width:5.5em;font-variant-numeric:tabular-nums}
 textarea{width:100%;min-height:72px;resize:vertical}
 .check{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .hint{font-size:.8rem;color:var(--muted)}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0;min-width:0}
+legend{font-size:.82rem;font-weight:700;color:var(--muted);padding:0 4px}
 
-/* 作成パネル */
 .gen-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
 @media (max-width:720px){.gen-grid{grid-template-columns:1fr}}
 .gen-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
 .confirm{background:var(--warn-soft);border-radius:6px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.precheck{background:var(--bad-soft);border-radius:6px;padding:10px 12px;font-size:.86rem}
+.precheck ul{margin:4px 0 0;padding-left:1.2em}
 
-/* 勤務表の格子 */
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted);align-items:center}
-.legend .c{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;width:24px;height:22px;border-radius:4px;font-weight:700;margin-right:4px;font-size:.78rem}
+.legend .c{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;width:26px;height:22px;border-radius:4px;font-weight:700;margin-right:4px;font-size:.78rem}
 .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 table.roster{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:.82rem}
 .roster th,.roster td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center}
 .roster thead th{position:sticky;top:0;background:var(--surface);z-index:2}
-.roster .name-col{position:sticky;left:0;background:var(--surface);z-index:3;text-align:left;min-width:132px;max-width:150px;padding:4px 8px;border-right:1px solid var(--line-strong)}
+.roster .name-col{position:sticky;left:0;background:var(--surface);z-index:3;text-align:left;min-width:140px;max-width:160px;padding:4px 8px;border-right:1px solid var(--line-strong)}
 .roster thead .name-col{z-index:4}
 .roster .day-h{width:34px;min-width:34px;padding:4px 0;line-height:1.2}
 .roster .day-h .dn{display:block;font-weight:700}
@@ -115,6 +124,7 @@ table.roster{border-collapse:separate;border-spacing:0;font-variant-numeric:tabu
 .roster .day-h .hol{display:block;font-size:.62rem;color:var(--sun)}
 .roster td.cell{height:30px;position:relative;font-weight:700}
 .roster td.cell button,.roster td.cell>span{all:unset;display:flex;align-items:center;justify-content:center;white-space:nowrap;width:100%;height:30px;cursor:pointer}
+.roster td.cell>span{cursor:default}
 .roster td.cell button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .c-D{background:var(--day);color:var(--day-ink)}
 .c-N{background:var(--night);color:var(--night-ink)}
@@ -124,14 +134,18 @@ table.roster{border-collapse:separate;border-spacing:0;font-variant-numeric:tabu
 .cell.mk-x::after,.cell.mk-tri::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 8px 8px 0}
 .cell.mk-x::after{border-color:transparent var(--bad) transparent transparent}
 .cell.mk-tri::after{border-color:transparent var(--warn) transparent transparent}
+.cell.fixed::before{content:"";position:absolute;left:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.75}
 .cell.hit-tri{box-shadow:inset 0 0 0 2px var(--warn)}
 .cell.hit-x{box-shadow:inset 0 0 0 2px var(--bad)}
 .roster .nm{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.roster .meta{display:block;font-size:.68rem;color:var(--muted);white-space:nowrap}
+.roster .meta{display:block;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .roster .stat{min-width:34px;padding:0 4px;color:var(--ink)}
-.roster .stat.off-dev{color:var(--warn);font-weight:700}
+.roster .stat.dev{color:var(--bad);font-weight:700;background:var(--bad-soft)}
+.roster .stat.soft{color:var(--warn);font-weight:700}
+.roster tr.group th{background:var(--care-soft);color:var(--care);text-align:left;padding:3px 8px;font-size:.78rem}
+.roster tr.group td{background:var(--care-soft)}
 .roster tfoot th,.roster tfoot td{background:var(--surface-2);height:28px}
-.roster tfoot .name-col{background:var(--surface-2);font-size:.78rem}
+.roster tfoot .name-col{background:var(--surface-2);font-size:.76rem}
 .roster td.short{color:var(--bad);font-weight:700;background:var(--bad-soft)}
 .roster td.over{color:var(--warn)}
 .roster td small{font-size:.65rem;color:var(--muted);font-weight:400}
@@ -140,9 +154,8 @@ table.roster{border-collapse:separate;border-spacing:0;font-variant-numeric:tabu
 .issues li{display:flex;gap:8px;align-items:baseline;font-size:.86rem;padding:4px 0;border-bottom:1px dashed var(--line)}
 .issues .lv{flex:none}
 
-/* 希望入力カレンダー */
-.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
-.seg button{appearance:none;border:0;background:var(--surface);padding:8px 12px;cursor:pointer;font-weight:700;border-right:1px solid var(--line)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--surface);padding:8px 11px;cursor:pointer;font-weight:700;border-right:1px solid var(--line)}
 .seg button:last-child{border-right:0}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
@@ -150,37 +163,51 @@ table.roster{border-collapse:separate;border-spacing:0;font-variant-numeric:tabu
 .cal .wh.sun{color:var(--sun)} .cal .wh.sat{color:var(--sat)}
 .cal .dc{border:1px solid var(--line);border-radius:6px;background:var(--surface);display:flex;flex-direction:column;min-width:0}
 .cal .dc.blank{border:0;background:none}
-.cal .dbtn{appearance:none;border:0;background:none;cursor:pointer;font-weight:700;padding:3px 0;font-variant-numeric:tabular-nums}
-.cal .dc.sun .dbtn{color:var(--sun)} .cal .dc.sat .dbtn{color:var(--sat)}
-.cal .slot{appearance:none;border:0;border-top:1px solid var(--line);background:none;cursor:pointer;padding:4px 2px;font-size:.74rem;display:flex;justify-content:center;gap:3px;align-items:center;min-height:28px}
+.cal .dc.is-off{border-color:var(--bad);background:var(--bad-soft)}
+.cal .dc.is-fixD{border-color:var(--day-ink);background:var(--day)}
+.cal .dc.is-fixN{border-color:var(--night);box-shadow:inset 0 0 0 1px var(--night)}
+.cal .dbtn{appearance:none;border:0;background:none;cursor:pointer;font-weight:700;padding:3px 2px 0;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.cal .dbtn .tag{font-size:.66rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.1em}
+.cal .is-off .tag{color:var(--bad)} .cal .is-fixD .tag{color:var(--day-ink)} .cal .is-fixN .tag{color:var(--night)}
+.cal .dc.sun .dbtn>span:first-child{color:var(--sun)} .cal .dc.sat .dbtn>span:first-child{color:var(--sat)}
+.cal .slot{appearance:none;border:0;border-top:1px solid var(--line);background:none;cursor:pointer;padding:3px 2px;font-size:.74rem;display:flex;justify-content:center;gap:3px;align-items:center;min-height:26px}
 .cal .slot .st{font-weight:700;min-width:1em}
 .cal .slot.s2{background:var(--bad-soft);color:var(--bad)}
 .cal .slot.s1{background:var(--warn-soft);color:var(--warn)}
-@media (max-width:480px){.cal .slot .lb{display:none}.cal .slot{font-size:.8rem}}
+.cal .weekly{font-size:.62rem;color:var(--muted);text-align:center;line-height:1.2}
+@media (max-width:480px){.cal .slot .lb{display:none}.cal .slot{font-size:.8rem}.cal .dbtn .tag{font-size:.6rem}}
 
-/* スタッフ表・ルール表 */
 .tbl-wrap{overflow-x:auto}
 table.list{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
-.list th,.list td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;white-space:nowrap}
+.list th,.list td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
 .list th{font-size:.76rem;color:var(--muted);letter-spacing:.04em}
 .list td.num{text-align:right}
+.list .ord{display:flex;gap:2px}
+.list .ord button{width:26px;height:24px;padding:0;border:1px solid var(--line-strong);background:var(--surface);border-radius:4px;cursor:pointer}
+.list .ord button:disabled{opacity:.3;cursor:default}
+.list tr.sel td{background:var(--accent-soft)}
 .editor{border:1px solid var(--accent);background:var(--surface);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:14px}
-.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.weekly-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.weekly-grid label{display:flex;flex-direction:column;gap:2px;font-size:.76rem;font-weight:700;color:var(--muted);text-align:center}
+.weekly-grid select{padding:4px 2px;font-size:.78rem}
+@media (max-width:560px){.weekly-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 table.staffing{border-collapse:collapse;font-variant-numeric:tabular-nums}
-.staffing th,.staffing td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center}
-.staffing th.rl{text-align:left;font-size:.82rem}
-.staffing input[type=number]{width:3.6em;text-align:center}
+.staffing th,.staffing td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:center}
+.staffing th.rl{text-align:left;font-size:.82rem;white-space:nowrap}
+.staffing tr.care-row th.rl{color:var(--care)}
+.staffing input[type=number]{width:3.4em;text-align:center}
 .savebar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line-strong);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));z-index:20}
 .savebar .inner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 
 .empty{border:1px dashed var(--line-strong);border-radius:var(--radius);padding:28px 20px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;background:var(--surface)}
-.empty p{max-width:52ch}
+.empty p{max-width:56ch}
 
-.popover{position:absolute;z-index:50;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:170px}
+.popover{position:absolute;z-index:50;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:180px}
 .popover .ph{font-size:.78rem;color:var(--muted);padding:2px 4px 4px}
 .popover button{appearance:none;border:0;background:none;text-align:left;padding:6px 8px;border-radius:5px;cursor:pointer;display:flex;gap:8px;align-items:center}
 .popover button:hover{background:var(--surface-2)}
-.popover .c{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;width:26px;height:22px;border-radius:4px;font-weight:700;font-size:.78rem}
+.popover .c{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;width:28px;height:22px;border-radius:4px;font-weight:700;font-size:.78rem}
 
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.88rem;max-width:min(92vw,560px);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
@@ -191,18 +218,22 @@ table.staffing{border-collapse:collapse;font-variant-numeric:tabular-nums}
   <div class="band"><div class="inner">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span>
       <div><h1 id="wardTitle">病棟勤務表</h1><p class="sub" id="modeLine">読み込み中…</p></div></div>
-    <div class="month-pick">
-      <button class="icon-btn" data-action="month-prev" aria-label="前の月">‹</button>
-      <label for="monthInput" class="sr">対象月</label>
-      <input type="month" id="monthInput">
-      <button class="icon-btn" data-action="month-next" aria-label="次の月">›</button>
+    <div class="pickers">
+      <label for="wardSel" class="sr">病棟</label>
+      <select id="wardSel" hidden></select>
+      <div class="month-pick">
+        <button class="icon-btn" data-action="month-prev" aria-label="前の月">‹</button>
+        <label for="monthInput" class="sr">対象月</label>
+        <input type="month" id="monthInput">
+        <button class="icon-btn" data-action="month-next" aria-label="次の月">›</button>
+      </div>
     </div>
   </div></div>
   <div class="band"><div class="inner"><nav class="tabs" id="tabs" role="tablist"></nav></div></div>
 </header>
 <div id="banner"></div>
 <main class="band"><div class="inner" id="main">
-  <div class="empty"><h2>読み込み中…</h2><p class="muted">病棟のスタッフ、配置ルール、希望、勤務表を読み込んでいます。</p></div>
+  <div class="empty"><h2>読み込み中…</h2><p class="muted">病棟プロファイル、スタッフ、希望、勤務表を読み込んでいます。</p></div>
 </div></main>
 <div id="savebarHost"></div>
 <div id="popover" class="popover" hidden></div>
@@ -216,22 +247,28 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const pad=n=>String(n).padStart(2,"0");
 const num=(v,def=0)=>{const x=Number(v);return v!==""&&v!=null&&Number.isFinite(x)?x:def;};
 const clone=o=>JSON.parse(JSON.stringify(o));
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const WD=["日","月","火","水","木","金","土"];
 const WD_ORDER=[1,2,3,4,5,6,0];
+const ROLES={nurse:"看護師",care:"ケアワーカー"};
 const TYPES={dayOnly:"日勤のみ",normal:"日勤・夜勤",nightMain:"夜勤中心",nightOnly:"夜勤専従"};
-const CH=["X","D","N","A"], CODE={X:0,D:1,N:2,A:3}, LABEL=["休","日","夜","明"];
+const WEEKLY={"":"指定なし",off:"休み",day:"日勤",noNight:"夜勤不可",noDay:"日勤不可"};
+const CH=["X","D","N","A"],CODE={X:0,D:1,N:2,A:3},LABEL=["休","日","夜","明"];
 const HOLIDAYS=new Set(["2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20","2026-04-29","2026-05-03","2026-05-04","2026-05-05","2026-05-06","2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23","2026-10-12","2026-11-03","2026-11-23",
- "2027-01-01","2027-01-11","2027-02-11","2027-02-23","2027-03-21","2027-03-22","2027-04-29","2027-05-03","2027-05-04","2027-05-05","2027-07-19","2027-08-11","2027-09-20","2027-09-23","2027-10-11","2027-11-03","2027-11-23"]);
-const DEFAULTS={
-  wardName:"",
-  staffing:[{D:6,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:7,N:3}], // index = 曜日 (0=日)
+ "2027-01-01","2027-01-11","2027-02-11","2027-02-23","2027-03-21","2027-03-22","2027-04-29","2027-05-03","2027-05-04","2027-05-05","2027-07-19","2027-08-11","2027-09-20","2027-09-23","2027-10-11","2027-11-03","2027-11-23",
+ "2028-01-01","2028-01-10","2028-02-11","2028-02-23","2028-03-20","2028-04-29","2028-05-03","2028-05-04","2028-05-05","2028-07-17","2028-08-11","2028-09-18","2028-09-22","2028-10-09","2028-11-03","2028-11-23"]);
+const PD={ // 病棟プロファイルの既定値（staffing の配列の添字は曜日、0=日）
+  name:"",order:0,
+  staffing:{nurse:[{D:6,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:9,N:3},{D:7,N:3}],
+            care:[{D:0,N:0},{D:0,N:0},{D:0,N:0},{D:0,N:0},{D:0,N:0},{D:0,N:0},{D:0,N:0}]},
   leaderDays:[false,true,true,true,true,true,true],
-  holidayAsSunday:false, nightLeader:false,
+  holidayAsSunday:false,nightLeader:false,
   preceptor:{enabled:true,minExp:3,mode:"any",newNoNight:false,countNew:true},
-  ngPairs:[], offDays:9, maxConsec:5, offAfterAke:true,
-  maxNights:{normal:5,nightMain:8,nightOnly:10}, deadlineDay:20
+  ngPairs:[],offDays:9,maxConsec:5,akeOff:"required",nightGap:4,nightHalf:true,
+  maxNights:{normal:5,nightMain:8,nightOnly:10},
+  doubleOff:2,holidayOffMin:2,deadlineDay:20,memo:""
 };
-const LKEY="ward-roster-local-v1";
+const LKEY="ward-roster-local-v2";
 
 /* ---------- 保存先 ---------- */
 const Store={db:null,data:{},ls:{},
@@ -240,26 +277,24 @@ const Store={db:null,data:{},ls:{},
   list(col){const c=this.data[col]||{};return Object.keys(c).sort().map(id=>({...clone(c[id]),_id:id}));},
   emit(col){const l=this.list(col);(this.ls[col]||[]).forEach(f=>f(l));},
   sub(col,cb){
-    if(this.db) return this.db.collection(col).onSnapshot(s=>cb(s.docs.map(d=>({...d.data(),_id:d.id}))),e=>{if(e&&e.code!=="revoked")toast("データの受信が止まりました。ページを開き直してください。");});
-    (this.ls[col]||(this.ls[col]=[])).push(cb);cb(this.list(col));return()=>{};
-  },
-  async set(path,data){if(this.db)return this.db.doc(path).set(data);const[c,id]=path.split("/");(this.data[c]||(this.data[c]={}))[id]=clone(data);this.persist();this.emit(c);},
+    if(this.db)return this.db.collection(col).onSnapshot(s=>cb(s.docs.map(d=>({...d.data(),_id:d.id}))),e=>{if(e&&e.code!=="revoked")toast("データの受信が止まりました。ページを開き直してください。");});
+    (this.ls[col]||(this.ls[col]=[])).push(cb);cb(this.list(col));return()=>{};},
+  async set(path,data){const d={...data};delete d._id;if(this.db)return this.db.doc(path).set(d);const[c,id]=path.split("/");(this.data[c]||(this.data[c]={}))[id]=clone(d);this.persist();this.emit(c);},
   async del(path){if(this.db)return this.db.doc(path).delete();const[c,id]=path.split("/");if(this.data[c])delete this.data[c][id];this.persist();this.emit(c);}
 };
 function writeError(e){
   const code=e&&e.code;
-  if(code==="invalid_argument") toast("保存できませんでした。この画面で変更する権限がない可能性があります。");
-  else if(code==="quota_exceeded") toast("保存容量の上限に達しました。古いデータを削除してください。");
-  else toast("保存できませんでした。通信状況を確認して、もう一度お試しください。");
-}
+  if(code==="invalid_argument")toast("保存できませんでした。この画面で変更する権限がない可能性があります。");
+  else if(code==="quota_exceeded")toast("保存容量の上限に達しました。古いデータを削除してください。");
+  else toast("保存できませんでした。通信状況を確認して、もう一度お試しください。");}
 
 /* ---------- 状態 ---------- */
 const S={mode:"loading",isAdmin:false,uid:null,
-  settings:clone(DEFAULTS),nurses:[],requests:{},schedules:{},override:{},
-  month:defaultMonth(),tab:"schedule",loaded:{},
-  reqSel:null,reqMode:2,reqDraft:null,
+  wards:[],staff:[],requests:{},schedules:{},override:{},
+  wardId:null,month:defaultMonth(),tab:"schedule",
+  reqSel:null,reqMode:"off",reqLabel:"",reqDraft:null,
   rulesDraft:null,rulesDirty:false,ngA:"",ngB:"",
-  staffEdit:null,staffDel:null,
+  staffEdit:null,staffDel:null,wardDel:null,wardRename:null,
   offDraft:{},confirmGen:false,gen:false,genP:0,pop:null};
 
 function defaultMonth(){const t=new Date();const d=new Date(t.getFullYear(),t.getMonth()+1,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;}
@@ -268,192 +303,269 @@ function monthLabel(m){const[y,mo]=m.split("-");return `${y}年${Number(mo)}月`
 function monthInfo(m){const[y,mo]=m.split("-").map(Number);const L=new Date(y,mo,0).getDate();const days=[];
   for(let d=1;d<=L;d++){const wd=new Date(y,mo-1,d).getDay();const key=`${y}-${pad(mo)}-${pad(d)}`;days.push({d,wd,key,hol:HOLIDAYS.has(key)});}
   return{y,mo,L,days};}
-const holidayOp=(day,st)=>day.wd===0||(st.holidayAsSunday&&day.hol);
-const wdKey=(day,st)=>holidayOp(day,st)?0:day.wd;
+const holidayOp=(day,p)=>day.wd===0||(p.holidayAsSunday&&day.hol);
+const wdKey=(day,p)=>holidayOp(day,p)?0:day.wd;
 
-function mergeSettings(doc){
-  const s=clone(DEFAULTS);if(!doc)return s;
-  for(const k of Object.keys(DEFAULTS)){if(doc[k]===undefined)continue;
-    if(Array.isArray(DEFAULTS[k]))s[k]=clone(doc[k]);
-    else if(typeof DEFAULTS[k]==="object")s[k]={...DEFAULTS[k],...doc[k]};
+function mergeProfile(doc){
+  const s=clone(PD);if(!doc)return s;
+  for(const k of Object.keys(PD)){if(doc[k]===undefined||k==="staffing")continue;
+    const dv=PD[k];
+    if(Array.isArray(dv))s[k]=clone(doc[k]);
+    else if(dv&&typeof dv==="object")s[k]={...dv,...doc[k]};
     else s[k]=doc[k];}
-  s.staffing=DEFAULTS.staffing.map((x,i)=>({D:num(s.staffing?.[i]?.D,x.D),N:num(s.staffing?.[i]?.N,x.N)}));
-  s.leaderDays=DEFAULTS.leaderDays.map((x,i)=>typeof s.leaderDays?.[i]==="boolean"?s.leaderDays[i]:x);
+  for(const r of ["nurse","care"])s.staffing[r]=PD.staffing[r].map((x,i)=>({D:num(doc.staffing?.[r]?.[i]?.D,x.D),N:num(doc.staffing?.[r]?.[i]?.N,x.N)}));
+  s.leaderDays=PD.leaderDays.map((x,i)=>typeof s.leaderDays?.[i]==="boolean"?s.leaderDays[i]:x);
   s.ngPairs=(s.ngPairs||[]).filter(p=>p&&p.a&&p.b);
+  if(!["required","preferred","none"].includes(s.akeOff))s.akeOff="required";
   return s;}
 
-function sortedNurses(){return S.nurses.slice().sort((a,b)=>num(b.exp)-num(a.exp)||num(b.tenure)-num(a.tenure)||String(a.name).localeCompare(String(b.name),"ja"));}
-function nurseById(id){return S.nurses.find(x=>x._id===id);}
-function shortName(x){return String(x?.name||"").replace(/^例）/,"");}
-function schedOf(m){return S.override[m]||S.schedules[m]||null;}
-function requestFor(nid,m){let best=null;
-  for(const doc of Object.values(S.requests)){if(doc.nurseId!==nid)continue;const r=doc.months&&doc.months[m];
+const wardDoc=wid=>S.wards.find(w=>w._id===wid)||null;
+const prof=()=>mergeProfile(wardDoc(S.wardId));
+const wardName=wid=>wardDoc(wid)?.name||"（名称未設定）";
+function staffOf(wid){
+  const list=S.staff.filter(x=>x.wardId===wid);
+  const ord=x=>x.order==null||x.order===""?1e6-num(x.exp)*100:num(x.order);
+  const by=(a,b)=>ord(a)-ord(b)||num(b.exp)-num(a.exp)||String(a.name).localeCompare(String(b.name),"ja");
+  return[...list.filter(x=>(x.role||"nurse")==="nurse").sort(by),...list.filter(x=>x.role==="care").sort(by)];}
+const staffById=id=>S.staff.find(x=>x._id===id);
+const shortName=x=>String(x?.name||"").replace(/^例）/,"");
+const schedKey=(wid,m)=>wid+"_"+m;
+const schedOf=(wid,m)=>S.override[schedKey(wid,m)]||S.schedules[schedKey(wid,m)]||null;
+function requestFor(sid,m){let best=null;
+  for(const doc of Object.values(S.requests)){if((doc.staffId||doc.nurseId)!==sid)continue;const r=doc.months&&doc.months[m];
     if(r&&(!best||(r.updatedAt||0)>(best.updatedAt||0)))best=r;}
   return best;}
-function myReqDocId(nid){return S.isAdmin?"mgr-"+nid:S.uid;}
-function nightCap(x,st){if((x.nightType||"normal")==="dayOnly")return 0;if(x.maxNights!==""&&x.maxNights!=null)return num(x.maxNights,0);return num(st.maxNights[x.nightType||"normal"],5);}
+const myReqDocId=sid=>S.isAdmin?"mgr-"+sid:S.uid;
+function nightCap(x,p){if((x.nightType||"normal")==="dayOnly")return 0;if(x.maxNights!==""&&x.maxNights!=null)return num(x.maxNights,0);return num(p.maxNights[x.nightType||"normal"],5);}
+// 毎週の条件と、その月の希望・指定を一日ずつ合わせたもの
+function dayReq(x,r,dy){
+  const w=(x.weekly||{})[dy.wd]||"",base=w==="off"?{off:1,weekly:1}:w==="day"?{fix:"D",label:"毎週",weekly:1}:w==="noNight"?{N:2,weekly:1}:w==="noDay"?{D:2,weekly:1}:{};
+  const c=r?.days?.[dy.d];return c&&Object.keys(c).length?c:base;}
 
 /* ---------- 自動作成のモデル ---------- */
-const W={short:1000,overD:15,overN:400,leader:900,precept:700,ng:1000,avoid:60,off:120,off2:30,nightOver:500,nightUnder:160,nightBal:12,consec:250,ake:300};
+const W={short:1000,overD:15,overN:400,leader:900,precept:700,ng:1000,avoid:60,off:120,off2:30,
+  nightOver:2000,nightUnder:160,nightBal:12,consec:400,akeSoft:300,dbl:600,hol:700,gap:120,half:150};
 
-function buildModel(m,offTarget){
-  const st=S.settings,mi=monthInfo(m),L=mi.L,nurses=sortedNurses(),n=nurses.length,pc=st.preceptor;
-  const idx=new Map(nurses.map((x,i)=>[x._id,i]));
-  const M={m,mi,L,n,nurses,idx,offTarget,maxConsec:num(st.maxConsec,5),offAfterAke:!!st.offAfterAke,nightLeader:!!st.nightLeader,
-    precOn:!!pc.enabled,precMode:pc.mode,countNew:!!pc.countNew};
-  M.isNew=nurses.map(x=>!!x.isNew);
-  M.newList=nurses.map((x,i)=>i).filter(i=>M.isNew[i]);
-  M.qualP=nurses.map(x=>!x.isNew&&num(x.exp)>=num(pc.minExp,3));
-  M.prec=nurses.map(x=>x.preceptorId&&idx.has(x.preceptorId)?idx.get(x.preceptorId):-1);
-  M.leader=nurses.map(x=>!!x.leader&&!x.isNew);
-  M.type=nurses.map(x=>x.nightType||"normal");
-  M.maxN=nurses.map(x=>nightCap(x,st));
-  M.reqD=mi.days.map(d=>st.staffing[wdKey(d,st)].D);
-  M.reqN=mi.days.map(d=>st.staffing[wdKey(d,st)].N);
-  M.leadReq=mi.days.map(d=>!!st.leaderDays[wdKey(d,st)]);
+function buildModel(wid,m,offTarget){
+  const p=mergeProfile(wardDoc(wid)),mi=monthInfo(m),L=mi.L,staff=staffOf(wid),n=staff.length,pc=p.preceptor;
+  const idx=new Map(staff.map((x,i)=>[x._id,i]));
+  const M={wid,m,mi,L,n,staff,idx,p,offTarget,maxConsec:num(p.maxConsec,5),akeReq:p.akeOff==="required",akePref:p.akeOff==="preferred",
+    nightLeader:!!p.nightLeader,precOn:!!pc.enabled,precMode:pc.mode,nightGap:num(p.nightGap,0),nightHalf:!!p.nightHalf,half:Math.ceil(L/2),conflicts:[]};
+  M.role=staff.map(x=>x.role==="care"?1:0);
+  M.isNew=staff.map((x,i)=>!M.role[i]&&!!x.isNew);
+  M.newList=staff.map((x,i)=>i).filter(i=>M.isNew[i]);
+  M.cnt=staff.map((x,i)=>x.excludeFromCount||(M.isNew[i]&&!pc.countNew)?0:1);
+  M.qualP=staff.map((x,i)=>!M.role[i]&&!x.isNew&&num(x.exp)>=num(pc.minExp,3));
+  M.prec=staff.map(x=>x.preceptorId&&idx.has(x.preceptorId)?idx.get(x.preceptorId):-1);
+  M.leader=staff.map((x,i)=>!M.role[i]&&!!x.leader&&!x.isNew);
+  M.type=staff.map(x=>x.nightType||"normal");
+  M.maxN=staff.map(x=>nightCap(x,p));
+  M.onlyFix=staff.map(x=>!!x.onlyDesignatedNights);
+  M.dblWant=staff.map(x=>x.doubleOff!==""&&x.doubleOff!=null?num(x.doubleOff,0):num(p.doubleOff,0));
+  M.reqD=[0,1].map(r=>mi.days.map(d=>p.staffing[r?"care":"nurse"][wdKey(d,p)].D));
+  M.reqN=[0,1].map(r=>mi.days.map(d=>p.staffing[r?"care":"nurse"][wdKey(d,p)].N));
+  M.leadReq=mi.days.map(d=>!!p.leaderDays[wdKey(d,p)]);
+  M.holDay=mi.days.map(d=>d.wd===0||d.hol?1:0);
+  M.holMin=Math.min(num(p.holidayOffMin,0),M.holDay.reduce((a,b)=>a+b,0));
   const sz=n*L;
-  M.unD=new Uint8Array(sz);M.unN=new Uint8Array(sz);M.avD=new Uint8Array(sz);M.avN=new Uint8Array(sz);M.canD=new Uint8Array(sz);M.canN=new Uint8Array(sz);
-  M.note=nurses.map(()=>"");
-  nurses.forEach((x,i)=>{const r=requestFor(x._id,m);const cells=r?.cells||{};M.note[i]=r?.note||"";
-    for(let d=0;d<L;d++){const c=cells[d+1]||{},k=i*L+d;M.unD[k]=c.D===2?1:0;M.unN[k]=c.N===2?1:0;M.avD[k]=c.D===1?1:0;M.avN[k]=c.N===1?1:0;}});
-  nurses.forEach((x,i)=>{for(let d=0;d<L;d++){const k=i*L+d;
-    M.canD[k]=(!M.unD[k]&&M.type[i]!=="nightOnly")?1:0;
-    M.canN[k]=(!M.unN[k]&&M.type[i]!=="dayOnly"&&M.maxN[i]>0&&!(M.isNew[i]&&M.precOn&&pc.newNoNight)&&(d===L-1||!M.unD[k+1]))?1:0;}});
-  // 前月からの持ち越し（前月末の夜勤→1日は明け、連続勤務日数）
-  const prev=schedOf(addMonth(m,-1));
-  M.carryA=new Uint8Array(n);M.prevAke=new Uint8Array(n);M.carryRun=new Int16Array(n);
-  nurses.forEach((x,i)=>{const r=prev?.rows?.[x._id];if(!r)return;const last=r[r.length-1];
-    if(last==="N")M.carryA[i]=1;if(last==="A")M.prevAke[i]=1;let run=0;for(let j=r.length-1;j>=0&&r[j]!=="X";j--)run++;M.carryRun[i]=run;});
-  M.ng=st.ngPairs.map(p=>[idx.get(p.a),idx.get(p.b)]).filter(p=>p[0]!=null&&p[1]!=null);
+  ["off","unD","unN","avD","avN","canD","canN","fix","locked"].forEach(k=>M[k]=new Uint8Array(sz));
+  M.g0=new Uint8Array(sz);M.label=new Array(sz).fill("");M.note=staff.map(()=>"");
+  staff.forEach((x,i)=>{const r=requestFor(x._id,m);M.note[i]=r?.note||"";
+    mi.days.forEach((dy,d)=>{const c=dayReq(x,r,dy),k=i*L+d;
+      M.off[k]=c.off?1:0;M.unD[k]=c.D===2?1:0;M.unN[k]=c.N===2?1:0;M.avD[k]=c.D===1?1:0;M.avN[k]=c.N===1?1:0;
+      M.fix[k]=c.fix==="D"?1:c.fix==="N"?2:0;M.label[k]=c.label||"";});});
+  const dl=d=>`${d+1}日`;
+  const lockCell=(k,v)=>{if(M.locked[k]&&M.g0[k]!==v)return false;M.g0[k]=v;M.locked[k]=1;return true;};
+  // 前月からの持ち越し
+  const prev=schedOf(wid,addMonth(m,-1));
+  M.carryRun=new Int16Array(n);M.prevAke=new Uint8Array(n);M.lastNight=new Int16Array(n).fill(-99);
+  staff.forEach((x,i)=>{const r=prev?.rows?.[x._id];if(!r)return;const Lp=r.length,b=i*L,last=r[Lp-1];
+    let run=0;for(let j=Lp-1;j>=0&&r[j]!=="X";j--)run++;M.carryRun[i]=run;
+    const ln=r.lastIndexOf("N");if(ln>=0)M.lastNight[i]=ln-Lp;
+    if(last==="N"){lockCell(b,3);if(M.akeReq&&L>1)lockCell(b+1,0);}
+    if(last==="A"){M.prevAke[i]=1;if(M.akeReq)lockCell(b,0);}
+    if(Lp>1&&r[Lp-2]==="N"&&last==="A"&&M.akeReq)lockCell(b,0);});
+  // 休み希望 → 夜勤指定 → 日勤指定 の順に固定する
+  staff.forEach((x,i)=>{for(let d=0;d<L;d++){const k=i*L+d;if(M.off[k]&&!lockCell(k,0))M.conflicts.push(`${x.name} ${dl(d)}：休み希望が前月からの夜勤明けと重なっています`);}});
+  staff.forEach((x,i)=>{for(let d=0;d<L;d++){const k=i*L+d;if(M.fix[k]!==2)continue;
+    const okA=d+1>=L||(!M.locked[k+1]||M.g0[k+1]===3),okX=!M.akeReq||d+2>=L||!M.locked[k+2]||M.g0[k+2]===0;
+    if(M.locked[k]&&M.g0[k]!==2||!okA||!okX){M.conflicts.push(`${x.name} ${dl(d)}：夜勤指定が翌日・翌々日の休み希望や他の指定と重なるため反映できません`);continue;}
+    lockCell(k,2);if(d+1<L)lockCell(k+1,3);if(M.akeReq&&d+2<L)lockCell(k+2,0);}});
+  staff.forEach((x,i)=>{for(let d=0;d<L;d++){const k=i*L+d;if(M.fix[k]!==1)continue;
+    if(!lockCell(k,1))M.conflicts.push(`${x.name} ${dl(d)}：日勤指定が夜勤明け・明けの翌日の休みと重なるため反映できません`);}});
+  staff.forEach((x,i)=>{for(let d=0;d<L;d++){const k=i*L+d;
+    M.canD[k]=(!M.off[k]&&!M.unD[k]&&M.type[i]!=="nightOnly")?1:0;
+    M.canN[k]=(!M.off[k]&&!M.unN[k]&&M.type[i]!=="dayOnly"&&M.maxN[i]>0&&!M.onlyFix[i]&&!(M.isNew[i]&&M.precOn&&pc.newNoNight)&&(d===L-1||!M.off[k+1]))?1:0;}});
+  M.ng=p.ngPairs.map(q=>[idx.get(q.a),idx.get(q.b)]).filter(q=>q[0]!=null&&q[1]!=null);
   return M;}
 
 function dayCost(M,g,d){
-  const n=M.n,L=M.L;let cD=0,cN=0,ldD=false,ldN=false,c=0;
-  for(let i=0;i<n;i++){const k=i*L+d,v=g[k];
-    if(v===1){if(!M.isNew[i]||M.countNew)cD++;if(M.leader[i])ldD=true;if(M.avD[k])c+=W.avoid;}
-    else if(v===2){if(!M.isNew[i]||M.countNew)cN++;if(M.leader[i])ldN=true;if(M.avN[k])c+=W.avoid;}
-    else if(v===3){if(M.avD[k])c+=W.avoid/2;}}
-  const sD=M.reqD[d]-cD;c+=sD>0?sD*W.short:sD*sD*W.overD;
-  const sN=M.reqN[d]-cN;c+=sN>0?sN*W.short:(-sN)*W.overN;
+  const n=M.n,L=M.L,cD=[0,0],cN=[0,0];let ldD=false,ldN=false,c=0;
+  for(let i=0;i<n;i++){const k=i*L+d,v=g[k];if(!v)continue;const r=M.role[i];
+    if(v===1){cD[r]+=M.cnt[i];if(M.leader[i])ldD=true;if(M.avD[k])c+=W.avoid;}
+    else if(v===2){cN[r]+=M.cnt[i];if(M.leader[i])ldN=true;if(M.avN[k])c+=W.avoid;}
+    else if(M.avD[k])c+=W.avoid/2;}
+  for(let r=0;r<2;r++){const sD=M.reqD[r][d]-cD[r];c+=sD>0?sD*W.short:sD*sD*W.overD;const sN=M.reqN[r][d]-cN[r];c+=sN>0?sN*W.short:(-sN)*W.overN;}
   if(M.leadReq[d]&&!ldD)c+=W.leader;
-  if(M.nightLeader&&M.reqN[d]>0&&!ldN)c+=W.leader;
+  if(M.nightLeader&&M.reqN[0][d]>0&&!ldN)c+=W.leader;
   if(M.precOn)for(const i of M.newList){const v=g[i*L+d];if(v!==1&&v!==2)continue;let ok=false;
     if(M.precMode==="assigned"&&M.prec[i]>=0)ok=g[M.prec[i]*L+d]===v;
     else for(let j=0;j<n;j++){if(M.qualP[j]&&g[j*L+d]===v){ok=true;break;}}
     if(!ok)c+=W.precept;}
-  for(const p of M.ng){const va=g[p[0]*L+d];if((va===1||va===2)&&va===g[p[1]*L+d])c+=W.ng;}
+  for(const q of M.ng){const va=g[q[0]*L+d];if((va===1||va===2)&&va===g[q[1]*L+d])c+=W.ng;}
   return c;}
 
 function nurseCost(M,g,i){
-  const L=M.L,b=i*L;let off=0,nights=0,run=M.carryRun[i],c=0;
+  const L=M.L,b=i*L;let off=0,nights=0,run=M.carryRun[i],c=0,pairs=0,prevX=false,paired=false,hol=0,last=M.lastNight[i],h1=0,h2=0;
   for(let d=0;d<L;d++){const v=g[b+d];
-    if(v===0){off++;run=0;}else{run++;if(run>M.maxConsec)c+=W.consec;}
-    if(v===2)nights++;
-    if(M.offAfterAke){const pv=d===0?(M.prevAke[i]?3:0):g[b+d-1];if(pv===3&&(v===1||v===2))c+=W.ake;}}
+    if(v===0){off++;run=0;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
+    else{run++;if(run>M.maxConsec)c+=W.consec;prevX=false;paired=false;}
+    if(v===2){nights++;if(d<M.half)h1++;else h2++;if(d-last<M.nightGap&&!M.onlyFix[i])c+=W.gap;last=d;}
+    if(M.akePref){const pv=d===0?(M.prevAke[i]?3:0):g[b+d-1];if(pv===3&&(v===1||v===2))c+=W.akeSoft;}}
+  if(pairs<M.dblWant[i])c+=(M.dblWant[i]-pairs)*W.dbl;
+  if(hol<M.holMin)c+=(M.holMin-hol)*W.hol;
   if(M.type[i]!=="nightOnly"){const dev=Math.abs(off-M.offTarget);c+=dev*W.off+dev*dev*W.off2;}
   const mx=M.maxN[i];
   if(nights>mx)c+=(nights-mx)*W.nightOver;
-  if(M.type[i]==="nightMain"||M.type[i]==="nightOnly")c+=Math.max(0,mx-nights)*W.nightUnder;else c+=nights*nights*W.nightBal;
+  if(M.type[i]==="nightMain"||M.type[i]==="nightOnly"){if(!M.onlyFix[i])c+=Math.max(0,mx-nights)*W.nightUnder;}
+  else c+=nights*nights*W.nightBal;
+  if(M.nightHalf&&!M.onlyFix[i]){const dv=Math.abs(h1-h2);if(dv>1)c+=(dv-1)*W.half;}
   return c;}
 
-async function anneal(M,onProgress){
-  const{n,L}=M,g=new Uint8Array(n*L),locked=new Uint8Array(n*L);
-  for(let i=0;i<n;i++)if(M.carryA[i]){g[i*L]=3;locked[i*L]=1;}
+async function annealOnce(M,onProgress,p0,p1){
+  const{n,L}=M,g=M.g0.slice(),locked=M.locked,nc=new Int16Array(n);
+  for(let i=0;i<n;i++)for(let d=0;d<L;d++)if(g[i*L+d]===2)nc[i]++;
   const dayC=new Float64Array(L),nurC=new Float64Array(n);let total=0;
   for(let d=0;d<L;d++){dayC[d]=dayCost(M,g,d);total+=dayC[d];}
   for(let i=0;i<n;i++){nurC[i]=nurseCost(M,g,i);total+=nurC[i];}
   let best=total;const bestG=g.slice();
-  const iters=Math.min(900000,Math.max(250000,n*L*500)),T0=400,T1=0.3,CH_=20000;
+  const iters=Math.min(2500000,Math.max(500000,n*L*1500)),T0=400,T1=0.3,CHUNK=20000;
   const ch=[],ds=[],ns=[],nd=[],nn=[];
-  const setC=(k,v)=>{ch.push(k,g[k]);g[k]=v;};
+  const setC=(k,v)=>{const o=g[k],i=(k/L)|0;ch.push(k,o);if(o===2)nc[i]--;if(v===2)nc[i]++;g[k]=v;};
+  const revert=()=>{for(let q=ch.length-2;q>=0;q-=2){const k=ch[q],o=ch[q+1],i=(k/L)|0;if(g[k]===2)nc[i]--;if(o===2)nc[i]++;g[k]=o;}ch.length=0;};
   const rnd=x=>(Math.random()*x)|0;
+  const dayOK=(i,d)=>{const k=i*L+d;return!locked[k]&&M.canD[k]&&!(M.akeReq&&d>0&&g[k-1]===3);};
+  const placeN=(i,d)=>{const k=i*L+d;
+    if(locked[k]||g[k]>1||!M.canN[k]||nc[i]>=M.maxN[i])return false;
+    if(d>0&&(g[k-1]===2||(M.akeReq&&g[k-1]===3)))return false;
+    if(d+1<L&&(locked[k+1]||g[k+1]>1))return false;
+    if(M.akeReq&&d+2<L){const v=g[k+2];if(v>=2||(v===1&&locked[k+2]))return false;}
+    setC(k,2);if(d+1<L)setC(k+1,3);if(M.akeReq&&d+2<L&&g[k+2]===1)setC(k+2,0);return true;};
+  const canRem=(i,d)=>{const k=i*L+d;return g[k]===2&&!locked[k];};
+  const remN=(i,d)=>{const k=i*L+d;setC(k,0);if(d+1<L&&g[k+1]===3&&!locked[k+1])setC(k+1,0);};
   for(let it=0;it<iters;it++){
-    if(it%CH_===0){onProgress(it/iters);await new Promise(r=>setTimeout(r,0));}
+    if(it%CHUNK===0){onProgress(p0+(p1-p0)*it/iters);await new Promise(r=>setTimeout(r,0));}
     const T=T0*Math.pow(T1/T0,it/iters);
-    ch.length=0;ds.length=0;ns.length=0;
+    ch.length=0;
     const r=Math.random(),i=rnd(n),d=rnd(L),k=i*L+d;
-    if(r<0.30){ // 日勤⇔休み
-      if(locked[k])continue;const v=g[k];
-      if(v===0){if(!M.canD[k])continue;setC(k,1);}else if(v===1)setC(k,0);else continue;
-      ds.push(d);ns.push(i);
-    }else if(r<0.42){ // 夜勤を入れる（翌日は明け）
-      if(locked[k]||g[k]>1||!M.canN[k])continue;
-      if(d<L-1){if(locked[k+1]||g[k+1]>1)continue;setC(k,2);setC(k+1,3);ds.push(d,d+1);}else{setC(k,2);ds.push(d);}
-      ns.push(i);
-    }else if(r<0.50){ // 夜勤を外す
-      if(g[k]!==2||locked[k])continue;setC(k,0);if(d<L-1){setC(k+1,0);ds.push(d,d+1);}else ds.push(d);ns.push(i);
-    }else if(r<0.72){ // 同じ日の二人を入れ替える
+    if(r<0.28){ // 日勤⇔休み
+      if(g[k]===0){if(!dayOK(i,d))continue;setC(k,1);}else if(g[k]===1&&!locked[k])setC(k,0);else continue;
+    }else if(r<0.40){if(!placeN(i,d))continue; // 夜勤セットを入れる
+    }else if(r<0.47){if(!canRem(i,d))continue;remN(i,d); // 夜勤セットを外す
+    }else if(r<0.67){ // 同じ日の二人を入れ替える
       const j=rnd(n);if(j===i)continue;const kj=j*L+d,a=g[k],b=g[kj];
       if(a===b||a>1||b>1||locked[k]||locked[kj])continue;
-      if(b===1&&!M.canD[k])continue;if(a===1&&!M.canD[kj])continue;
-      setC(k,b);setC(kj,a);ds.push(d);ns.push(i,j);
-    }else if(r<0.86){ // 夜勤を別の人へ移す
-      if(g[k]!==2||locked[k])continue;const j=rnd(n);if(j===i)continue;const kj=j*L+d;
-      if(locked[kj]||g[kj]>1||!M.canN[kj])continue;if(d<L-1&&(locked[kj+1]||g[kj+1]>1))continue;
-      setC(k,0);setC(kj,2);if(d<L-1){setC(k+1,0);setC(kj+1,3);ds.push(d,d+1);}else ds.push(d);ns.push(i,j);
+      if(a===1&&!dayOK(j,d))continue;if(b===1&&!dayOK(i,d))continue;
+      setC(k,b);setC(kj,a);
+    }else if(r<0.80){ // 夜勤を別の人へ移す
+      if(!canRem(i,d))continue;const j=rnd(n);if(j===i)continue;remN(i,d);if(!placeN(j,d)){revert();continue;}
+    }else if(r<0.90){ // 同じ人の夜勤を別の日へ移す
+      if(!canRem(i,d))continue;remN(i,d);if(!placeN(i,rnd(L))){revert();continue;}
     }else{ // 同じ人の日勤日を動かす
-      const d2=rnd(L);if(d2===d)continue;const k2=i*L+d2;
-      if(g[k]!==1||g[k2]!==0||locked[k]||locked[k2]||!M.canD[k2])continue;
-      setC(k,0);setC(k2,1);ds.push(d,d2);ns.push(i);
+      const d2=rnd(L);if(d2===d||g[k]!==1||locked[k]||g[i*L+d2]!==0||!dayOK(i,d2))continue;setC(k,0);setC(i*L+d2,1);
     }
+    ds.length=0;ns.length=0;
+    for(let q=0;q<ch.length;q+=2){const kk=ch[q],ii=(kk/L)|0,dd=kk-ii*L;if(!ds.includes(dd))ds.push(dd);if(!ns.includes(ii))ns.push(ii);}
     let delta=0;nd.length=0;nn.length=0;
     for(const x of ds){const c=dayCost(M,g,x);nd.push(c);delta+=c-dayC[x];}
     for(const x of ns){const c=nurseCost(M,g,x);nn.push(c);delta+=c-nurC[x];}
     if(delta<=0||Math.random()<Math.exp(-delta/T)){
       ds.forEach((x,q)=>dayC[x]=nd[q]);ns.forEach((x,q)=>nurC[x]=nn[q]);total+=delta;
       if(total<best-1e-9){best=total;bestG.set(g);}
-    }else{for(let q=ch.length-2;q>=0;q-=2)g[ch[q]]=ch[q+1];}
+    }else revert();
   }
-  onProgress(1);
   return{g:bestG,cost:best};}
+
+async function anneal(M,onProgress){
+  const RUNS=2;let best=null;
+  for(let r=0;r<RUNS;r++){const res=await annealOnce(M,onProgress,r/RUNS,(r+1)/RUNS);if(!best||res.cost<best.cost)best=res;}
+  onProgress(1);return best;}
 
 function assignLeaders(M,g){
   const cnt=new Array(M.n).fill(0),ncnt=new Array(M.n).fill(0),leaders={},nightLeaders={};
   const pick=(d,v,counts)=>{let bi=-1;for(let i=0;i<M.n;i++){if(!M.leader[i]||g[i*M.L+d]!==v)continue;
-      if(bi<0||counts[i]<counts[bi]||(counts[i]===counts[bi]&&num(M.nurses[i].exp)>num(M.nurses[bi].exp)))bi=i;}return bi;};
+      if(bi<0||counts[i]<counts[bi]||(counts[i]===counts[bi]&&num(M.staff[i].exp)>num(M.staff[bi].exp)))bi=i;}return bi;};
   for(let d=0;d<M.L;d++){
-    if(M.leadReq[d]){const i=pick(d,1,cnt);if(i>=0){leaders[d+1]=M.nurses[i]._id;cnt[i]++;}}
-    if(M.nightLeader&&M.reqN[d]>0){const i=pick(d,2,ncnt);if(i>=0){nightLeaders[d+1]=M.nurses[i]._id;ncnt[i]++;}}}
+    if(M.leadReq[d]){const i=pick(d,1,cnt);if(i>=0){leaders[d+1]=M.staff[i]._id;cnt[i]++;}}
+    if(M.nightLeader&&M.reqN[0][d]>0){const i=pick(d,2,ncnt);if(i>=0){nightLeaders[d+1]=M.staff[i]._id;ncnt[i]++;}}}
   return{leaders,nightLeaders};}
 
+// 作成前の見通し：夜勤の枠が足りるか
+function precheck(M){
+  const out=[];
+  for(let r=0;r<2;r++){const need=M.reqN[r].reduce((a,b)=>a+b,0);if(!need)continue;
+    let cap=0;M.staff.forEach((x,i)=>{if(M.role[i]!==r||!M.cnt[i])return;
+      let fixed=0,avail=0;for(let d=0;d<M.L;d++){const k=i*M.L+d;if(M.fix[k]===2)fixed++;if(M.canN[k])avail++;}
+      cap+=M.onlyFix[i]?fixed:Math.min(M.maxN[i],Math.max(fixed,Math.ceil(avail/(M.akeReq?3:2))));});
+    if(cap<need)out.push(`${r?"ケアワーカー":"看護師"}の夜勤：必要な延べ人数は${need}回ですが、夜勤に入れる人の上限の合計は${cap}回です。夜勤の上限・人数・勤務タイプを見直さないと、不足が出ます。`);}
+  // 日曜・祝日の休みを全員に確保できるか（勤務に入る人数＝日勤＋夜勤入り＋前日の夜勤の明け）
+  if(M.holMin>0)for(let r=0;r<2;r++){const nr=M.role.filter(x=>x===r).length;if(!nr)continue;
+    let cap=0,days=0;for(let d=0;d<M.L;d++){if(!M.holDay[d])continue;days++;cap+=Math.max(0,nr-M.reqD[r][d]-M.reqN[r][d]-(d>0?M.reqN[r][d-1]:M.reqN[r][d]));}
+    const need=nr*M.holMin;
+    if(cap<need)out.push(`${r?"ケアワーカー":"看護師"}の日曜・祝日の休み：この月の日曜・祝日は${days}日で、配置人数を満たすと休める延べ人数は最大${cap}日です。全員に${M.holMin}日ずつ（${need}日）は確保できないため、足りない人が出ます。`);}
+  const leaders=M.staff.filter((x,i)=>M.leader[i]&&M.type[i]!=="nightOnly").length;
+  if(M.leadReq.some(Boolean)&&!leaders)out.push("日勤リーダーができる看護師が登録されていません。");
+  return out;}
+
 /* ---------- 勤務表のチェック ---------- */
-function analyze(m,doc){
-  const M=buildModel(m,num(doc?.offDays,S.settings.offDays)),{n,L,nurses,mi}=M,g=new Uint8Array(n*L),rows=doc?.rows||{};
-  nurses.forEach((x,i)=>{const r=rows[x._id]||"";for(let d=0;d<L;d++)g[i*L+d]=CODE[r[d]]??0;});
-  const leaders=doc?.leaders||{},nl=doc?.nightLeaders||{},issues=[],dayStats=[],nurseStats=[];
-  const dl=d=>`${d+1}日(${WD[mi.days[d].wd]})`;
-  for(let d=0;d<L;d++){let cD=0,cN=0;
-    for(let i=0;i<n;i++){const v=g[i*L+d];if(v===1&&(!M.isNew[i]||M.countNew))cD++;if(v===2&&(!M.isNew[i]||M.countNew))cN++;}
-    const li=M.idx.get(leaders[d+1]),lok=li!=null&&g[li*L+d]===1;
-    const ni=M.idx.get(nl[d+1]),nok=ni!=null&&g[ni*L+d]===2;
-    dayStats.push({cD,cN,reqD:M.reqD[d],reqN:M.reqN[d],leader:lok?nurses[li]:null,nightLeader:nok?nurses[ni]:null,leadReq:M.leadReq[d]});
-    if(cD<M.reqD[d])issues.push({lv:"bad",t:`${dl(d)} 日勤が${M.reqD[d]-cD}名不足しています（${cD}/${M.reqD[d]}名）`});
-    if(cN<M.reqN[d])issues.push({lv:"bad",t:`${dl(d)} 夜勤が${M.reqN[d]-cN}名不足しています（${cN}/${M.reqN[d]}名）`});
-    if(cN>M.reqN[d])issues.push({lv:"warn",t:`${dl(d)} 夜勤が設定より${cN-M.reqN[d]}名多くなっています`});
-    if(M.leadReq[d]&&!lok){const has=nurses.some((x,i)=>M.leader[i]&&g[i*L+d]===1);
-      issues.push({lv:"bad",t:has?`${dl(d)} 日勤リーダーが未指定です（リーダー可の看護師は勤務しています）`:`${dl(d)} 日勤にリーダー可の看護師がいません`});}
-    if(M.nightLeader&&M.reqN[d]>0&&!nok)issues.push({lv:"bad",t:`${dl(d)} 夜勤リーダーがいません`});
-    if(M.precOn)for(const i of M.newList){const v=g[i*L+d];if(v!==1&&v!==2)continue;let ok=false;
-      if(M.precMode==="assigned"&&M.prec[i]>=0)ok=g[M.prec[i]*L+d]===v;else ok=nurses.some((x,j)=>M.qualP[j]&&g[j*L+d]===v);
-      if(!ok)issues.push({lv:"bad",t:`${dl(d)} ${nurses[i].name}（新人）の${v===1?"日勤":"夜勤"}に${M.precMode==="assigned"&&M.prec[i]>=0?"担当プリセプター":"経験"+S.settings.preceptor.minExp+"年以上の看護師"}がいません`});}
-    for(const[a,b]of M.ng){const va=g[a*L+d];if((va===1||va===2)&&va===g[b*L+d])issues.push({lv:"bad",t:`${dl(d)} ${nurses[a].name}と${nurses[b].name}が同じ${va===1?"日勤":"夜勤"}です（同時勤務NG）`});}
+function analyze(wid,m,doc){
+  const M=buildModel(wid,m,num(doc?.offDays,prof().offDays)),{n,L,staff,mi}=M,g=new Uint8Array(n*L),rows=doc?.rows||{};
+  staff.forEach((x,i)=>{const r=rows[x._id]||"";for(let d=0;d<L;d++)g[i*L+d]=CODE[r[d]]??0;});
+  const leaders=doc?.leaders||{},nl=doc?.nightLeaders||{},issues=[],dayStats=[],stats=[];
+  const dl=d=>`${d+1}日(${WD[mi.days[d].wd]})`,sh=v=>v===1?"日勤":v===2?"夜勤":v===3?"明け":"休み";
+  M.conflicts.forEach(t=>issues.push({lv:"bad",t}));
+  for(let d=0;d<L;d++){const cD=[0,0],cN=[0,0];
+    for(let i=0;i<n;i++){const v=g[i*L+d];if(v===1)cD[M.role[i]]+=M.cnt[i];if(v===2)cN[M.role[i]]+=M.cnt[i];}
+    const li=M.idx.get(leaders[d+1]),lok=li!=null&&g[li*L+d]===1,ni=M.idx.get(nl[d+1]),nok=ni!=null&&g[ni*L+d]===2;
+    dayStats.push({cD,cN,reqD:[M.reqD[0][d],M.reqD[1][d]],reqN:[M.reqN[0][d],M.reqN[1][d]],leader:lok?staff[li]:null,nightLeader:nok?staff[ni]:null,leadReq:M.leadReq[d]});
+    for(let r=0;r<2;r++){const rn=r?"ケアワーカー":"看護師";
+      if(cD[r]<M.reqD[r][d])issues.push({lv:"bad",t:`${dl(d)} 日勤の${rn}が${M.reqD[r][d]-cD[r]}名不足（${cD[r]}/${M.reqD[r][d]}名）`});
+      if(cN[r]<M.reqN[r][d])issues.push({lv:"bad",t:`${dl(d)} 夜勤の${rn}が${M.reqN[r][d]-cN[r]}名不足（${cN[r]}/${M.reqN[r][d]}名）`});
+      if(cN[r]>M.reqN[r][d])issues.push({lv:"warn",t:`${dl(d)} 夜勤の${rn}が設定より${cN[r]-M.reqN[r][d]}名多い`});}
+    if(M.leadReq[d]&&!lok){const has=staff.some((x,i)=>M.leader[i]&&g[i*L+d]===1);
+      issues.push({lv:"bad",t:has?`${dl(d)} 日勤リーダーが未指定（リーダー可の看護師は勤務しています）`:`${dl(d)} 日勤にリーダー可の看護師がいません`});}
+    if(M.nightLeader&&M.reqN[0][d]>0&&!nok)issues.push({lv:"bad",t:`${dl(d)} 夜勤リーダーがいません`});
+    if(M.precOn)for(const i of M.newList){const v=g[i*L+d];if(v!==1&&v!==2)continue;let ok;
+      if(M.precMode==="assigned"&&M.prec[i]>=0)ok=g[M.prec[i]*L+d]===v;else ok=staff.some((x,j)=>M.qualP[j]&&g[j*L+d]===v);
+      if(!ok)issues.push({lv:"bad",t:`${dl(d)} ${staff[i].name}（新人）の${sh(v)}に${M.precMode==="assigned"&&M.prec[i]>=0?"担当プリセプター":"経験"+M.p.preceptor.minExp+"年以上の看護師"}がいません`});}
+    for(const[a,b]of M.ng){const va=g[a*L+d];if((va===1||va===2)&&va===g[b*L+d])issues.push({lv:"bad",t:`${dl(d)} ${staff[a].name}と${staff[b].name}が同じ${sh(va)}（同時勤務NG）`});}
   }
-  nurses.forEach((x,i)=>{let D=0,N=0,A=0,off=0,hit=0,run=M.carryRun[i],over=0;const hits=[];
-    for(let d=0;d<L;d++){const k=i*L+d,v=g[k];
-      if(v===0){off++;run=0;}else{run++;if(run===M.maxConsec+1)over++;}
-      if(v===1)D++;if(v===2)N++;if(v===3)A++;
-      if((v===1&&M.unD[k])||(v===2&&M.unN[k])||(v===3&&M.unD[k]))issues.push({lv:"bad",t:`${x.name} ${dl(d)}の${v===2?"夜勤":v===3?"明け（日勤帯）":"日勤"}は「勤務不可」の希望日です`});
-      if((v===1&&M.avD[k])||(v===2&&M.avN[k])){hit++;hits.push(`${d+1}日${v===1?"日勤":"夜勤"}`);}
-      if(v===2&&d<L-1&&g[k+1]!==3)issues.push({lv:"warn",t:`${x.name} ${dl(d)}の夜勤の翌日が「明け」になっていません`});
-      if(M.offAfterAke){const pv=d===0?(M.prevAke[i]?3:0):g[k-1];if(pv===3&&(v===1||v===2))issues.push({lv:"warn",t:`${x.name} ${dl(d)} 明けの翌日に勤務が入っています`});}
-    }
+  staff.forEach((x,i)=>{let D=0,N=0,off=0,hit=0,run=M.carryRun[i],over=0,pairs=0,prevX=false,paired=false,hol=0,h1=0,h2=0,last=M.lastNight[i],gapHit=0;const hits=[];
+    for(let d=0;d<L;d++){const k=i*L+d,v=g[k],pv=d===0?(M.prevAke[i]?3:0):g[k-1];
+      if(v===0){off++;run=0;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
+      else{run++;if(run===M.maxConsec+1)over++;prevX=false;paired=false;}
+      if(v===1)D++;
+      if(v===2){N++;if(d<M.half)h1++;else h2++;if(d-last<M.nightGap&&!M.onlyFix[i])gapHit++;last=d;}
+      if(M.off[k]&&v!==0)issues.push({lv:"bad",t:`${x.name} ${dl(d)}は休み希望ですが${sh(v)}が入っています`});
+      else if((v===1&&M.unD[k])||(v===2&&M.unN[k])||(v===3&&M.unD[k]&&M.akeReq===false))issues.push({lv:"bad",t:`${x.name} ${dl(d)}の${sh(v)}は「勤務不可」の希望です`});
+      if(M.fix[k]&&v!==M.fix[k])issues.push({lv:"bad",t:`${x.name} ${dl(d)}は${M.fix[k]===1?"日勤":"夜勤"}指定${M.label[k]?"（"+M.label[k]+"）":""}ですが${sh(v)}になっています`});
+      if(M.type[i]==="nightOnly"&&v===1&&!M.fix[k])issues.push({lv:"bad",t:`${x.name}（夜勤専従）${dl(d)}に日勤が入っています`});
+      if(M.onlyFix[i]&&v===2&&M.fix[k]!==2)issues.push({lv:"bad",t:`${x.name} ${dl(d)}：指定日以外に夜勤が入っています`});
+      if((v===1&&M.avD[k])||(v===2&&M.avN[k])){hit++;hits.push(`${d+1}日${sh(v)}`);}
+      if(v===2&&d<L-1&&g[k+1]!==3)issues.push({lv:"bad",t:`${x.name} ${dl(d)}の夜勤の翌日が「明け」になっていません`});
+      if(v===3&&pv!==2&&!(d===0&&M.locked[k]))issues.push({lv:"warn",t:`${x.name} ${dl(d)}の「明け」の前日が夜勤ではありません`});
+      if(pv===3&&(v===1||v===2)&&M.p.akeOff!=="none")issues.push({lv:M.akeReq?"bad":"warn",t:`${x.name} ${dl(d)} 明けの翌日に${sh(v)}が入っています`});}
+    if(N>M.maxN[i])issues.push({lv:"bad",t:`${x.name} 夜勤${N}回（上限${M.maxN[i]}回）`});
     if(over)issues.push({lv:"warn",t:`${x.name} 連続勤務が${M.maxConsec}日を超える箇所があります`});
-    if(N>M.maxN[i])issues.push({lv:"warn",t:`${x.name} 夜勤${N}回（上限${M.maxN[i]}回）`});
     if(M.type[i]!=="nightOnly"&&off!==M.offTarget)issues.push({lv:"warn",t:`${x.name} 休み${off}日（公休数${M.offTarget}日）`});
+    if(pairs<M.dblWant[i])issues.push({lv:"warn",t:`${x.name} 2連休が${pairs}回（目標${M.dblWant[i]}回）`});
+    if(hol<M.holMin)issues.push({lv:"warn",t:`${x.name} 日曜・祝日の休みが${hol}日（目標${M.holMin}日以上）`});
+    if(M.nightHalf&&!M.onlyFix[i]&&Math.abs(h1-h2)>1)issues.push({lv:"warn",t:`${x.name} 夜勤が月の${h1>h2?"前半":"後半"}に偏っています（前半${h1}回・後半${h2}回）`});
+    if(gapHit)issues.push({lv:"info",t:`${x.name} 夜勤の間隔が${M.nightGap}日未満の箇所が${gapHit}か所`});
     if(hits.length)issues.push({lv:"info",t:`${x.name} 「できれば避けたい」と重なり: ${hits.join("、")}`});
-    nurseStats.push({D,N,A,off,hit});});
-  issues.sort((a,b)=>({bad:0,warn:1,info:2}[a.lv]-{bad:0,warn:1,info:2}[b.lv]));
-  return{M,g,dayStats,nurseStats,issues};}
+    stats.push({D,N,off,hit,pairs,hol,h1,h2});});
+  const order={bad:0,warn:1,info:2};issues.sort((a,b)=>order[a.lv]-order[b.lv]);
+  return{M,g,dayStats,stats,issues};}
 
 /* ---------- 描画 ---------- */
 let pendingRender=false;
@@ -461,181 +573,223 @@ function editingNow(){const a=document.activeElement;return a&&$("#main").contai
 function renderSoft(){if(editingNow()){pendingRender=true;return;}render();}
 $("#main").addEventListener("focusout",()=>{if(pendingRender)setTimeout(()=>{if(!editingNow()){pendingRender=false;render();}},0);});
 
-function tabsFor(){const t=[["schedule","勤務表"],["requests","希望入力"]];if(S.isAdmin)t.push(["staff","スタッフ","師長"],["rules","配置ルール","師長"]);return t;}
+function tabsFor(){const t=[["schedule","勤務表"],["requests","希望・指定"]];if(S.isAdmin)t.push(["staff","スタッフ","師長"],["wards","病棟プロファイル","師長"]);return t;}
 function render(){
-  const st=S.settings;
-  $("#wardTitle").textContent=st.wardName?`${st.wardName} 勤務表`:"病棟勤務表";
+  const ws=S.wards;
+  if(ws.length&&!wardDoc(S.wardId))S.wardId=ws[0]._id;
+  const w=wardDoc(S.wardId);
+  $("#wardTitle").textContent=w?`${w.name||"病棟"} 勤務表`:"病棟勤務表";
   $("#modeLine").textContent=S.mode==="loading"?"読み込み中…":S.mode==="local"?"このブラウザ内だけに保存しています":(S.isAdmin?"看護師長（管理者）として表示中":"スタッフとして表示中");
+  const sel=$("#wardSel");sel.hidden=!ws.length;
+  sel.innerHTML=ws.map(x=>`<option value="${esc(x._id)}" ${x._id===S.wardId?"selected":""}>${esc(x.name||"（名称未設定）")}</option>`).join("");
   $("#monthInput").value=S.month;
   const tabs=tabsFor();if(!tabs.some(t=>t[0]===S.tab))S.tab="schedule";
   $("#tabs").innerHTML=tabs.map(([k,l,r])=>`<button class="tab" role="tab" data-action="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${r?`<span class="role">${r}</span>`:""}</button>`).join("");
-  $("#banner").innerHTML=S.mode==="local"?`<div class="banner band"><div class="inner">この表示では病棟内でデータを共有できません。入力内容はこのブラウザの中だけに保存されます。claude.ai 上で開くと、看護師全員で同じデータを使えます。</div></div>`:"";
+  $("#banner").innerHTML=S.mode==="local"?`<div class="banner band"><div class="inner">この表示では病棟内でデータを共有できません。入力内容はこのブラウザの中だけに保存されます。claude.ai 上で開くと、スタッフ全員で同じデータを使えます。</div></div>`:"";
   if(S.mode==="loading")return;
-  if(S.tab==="schedule")renderSchedule();else if(S.tab==="requests")renderRequests();else if(S.tab==="staff")renderStaff();else renderRules();
+  if(!ws.length&&S.tab!=="wards"){
+    $("#main").innerHTML=`<div class="empty"><h2>病棟がまだ登録されていません</h2><p class="muted">${S.isAdmin?"最初に病棟プロファイルを登録してください。病棟ごとに、看護師・ケアワーカーの人数や配置のルールを持てます。":"看護師長が病棟を登録すると使えるようになります。"}</p>${S.isAdmin?`<button class="btn primary" data-action="tab" data-tab="wards">病棟を登録する</button>`:""}</div>`;
+    renderSavebar();return;}
+  if(S.tab==="schedule")renderSchedule();else if(S.tab==="requests")renderRequests();else if(S.tab==="staff")renderStaff();else renderWards();
   renderSavebar();}
 
-function submission(m){const ns=sortedNurses(),done=[],pending=[];
+function submission(wid,m){const ns=staffOf(wid),done=[],pending=[];
   ns.forEach(x=>{const r=requestFor(x._id,m);(r&&r.submitted?done:pending).push(x);});return{done,pending,total:ns.length};}
+function fmtTime(t){const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 
 function renderSchedule(){
-  const m=S.month,doc=schedOf(m);let h="";
-  if(S.isAdmin)h+=genPanel(m,doc);
-  if(!S.nurses.length){
-    h+=`<div class="empty"><h2>まだスタッフが登録されていません</h2><p class="muted">${S.isAdmin?"「スタッフ」タブで病棟の看護師を登録すると、ここで勤務表を作成できます。試しに動きを見たい場合は、例のスタッフ24名を登録することもできます。":"看護師長がスタッフを登録すると、ここに勤務表が表示されます。"}</p>${S.isAdmin?`<div class="row"><button class="btn primary" data-action="tab" data-tab="staff">スタッフを登録する</button><button class="btn" data-action="seed">例のスタッフ24名を登録</button></div>`:""}</div>`;
+  const wid=S.wardId,m=S.month,doc=schedOf(wid,m);let h="";
+  if(S.isAdmin)h+=genPanel(wid,m,doc);
+  if(!staffOf(wid).length){
+    h+=`<div class="empty"><h2>${esc(wardName(wid))}のスタッフが登録されていません</h2><p class="muted">${S.isAdmin?"「スタッフ」タブで看護師・ケアワーカーを登録すると、ここで勤務表を作成できます。動きを試したい場合は、例のスタッフ27名を登録することもできます。":"看護師長がスタッフを登録すると、ここに勤務表が表示されます。"}</p>${S.isAdmin?`<div class="row"><button class="btn primary" data-action="tab" data-tab="staff">スタッフを登録する</button><button class="btn" data-action="seed">例のスタッフ27名を登録</button></div>`:""}</div>`;
   }else if(!doc){
-    h+=`<div class="empty"><h2>${monthLabel(m)}の勤務表はまだありません</h2><p class="muted">${S.isAdmin?"看護師の希望がそろったら、上の「勤務表を作成」を押してください。":"看護師長が作成して公開すると、ここに表示されます。今のうちに「希望入力」タブから勤務できない日を提出してください。"}</p></div>`;
+    h+=`<div class="empty"><h2>${monthLabel(m)}の勤務表はまだありません</h2><p class="muted">${S.isAdmin?"希望と指定がそろったら、上の「勤務表を作成」を押してください。":"看護師長が作成して公開すると、ここに表示されます。今のうちに「希望・指定」タブから休み希望や会議の日を入力してください。"}</p></div>`;
   }else if(!S.isAdmin&&doc.status!=="published"){
     h+=`<div class="empty"><h2>${monthLabel(m)}の勤務表は作成中です</h2><p class="muted">看護師長が確認して公開すると表示されます。</p></div>`;
-  }else{
-    const A=analyze(m,doc);h+=tableHtml(m,doc,A)+issuesHtml(A);}
-  $("#main").innerHTML=h;
-  if(S.gen)updateProgress();}
+  }else{const A=analyze(wid,m,doc);h+=tableHtml(m,doc,A)+issuesHtml(A);}
+  $("#main").innerHTML=h;if(S.gen)updateProgress();}
 
-function genPanel(m,doc){
-  const sub=submission(m),pct=sub.total?Math.round(sub.done.length/sub.total*100):0;
+function genPanel(wid,m,doc){
+  const sub=submission(wid,m),pct=sub.total?Math.round(sub.done.length/sub.total*100):0,p=prof();
   const status=!doc?`<span class="chip">未作成</span>`:doc.status==="published"?`<span class="chip ok">公開中</span>`:`<span class="chip warn">下書き（スタッフには非表示）</span>`;
-  const off=S.offDraft[m]??doc?.offDays??S.settings.offDays;
-  const dl=`${monthLabel(addMonth(m,-1))}${S.settings.deadlineDay}日`;
+  const off=S.offDraft[schedKey(wid,m)]??doc?.offDays??p.offDays;
+  const pre=sub.total?precheck(buildModel(wid,m,num(off,9))):[];
   return `<section class="panel" aria-labelledby="genTitle">
-   <div class="panel-head"><div class="stack"><h2 id="genTitle">${monthLabel(m)}の勤務表</h2><div class="row">${status}${doc?.generatedAt?`<span class="hint">作成 ${fmtTime(doc.generatedAt)}${doc.edited?"・手直しあり":""}</span>`:""}</div></div>
+   <div class="panel-head"><div class="stack"><h2 id="genTitle">${esc(wardName(wid))}　${monthLabel(m)}の勤務表</h2><div class="row">${status}${doc?.generatedAt?`<span class="hint">作成 ${fmtTime(doc.generatedAt)}${doc.edited?"・手直しあり":""}</span>`:""}</div></div>
     ${doc?`<div class="row"><button class="btn" data-action="publish">${doc.status==="published"?"非公開に戻す":"スタッフに公開する"}</button><button class="btn" data-action="csv">CSVで保存</button></div>`:""}</div>
    <div class="gen-grid">
-    <div class="stack"><div class="row"><strong>希望の提出</strong><span>${sub.done.length} / ${sub.total}名</span><span class="hint">締切 ${dl}</span></div>
+    <div class="stack"><div class="row"><strong>希望の提出</strong><span>${sub.done.length} / ${sub.total}名</span><span class="hint">締切 ${monthLabel(addMonth(m,-1))}${p.deadlineDay}日</span></div>
      <div class="meter" aria-hidden="true"><span style="width:${pct}%"></span></div>
      ${sub.pending.length?`<details><summary class="hint">未提出の${sub.pending.length}名を見る</summary><div class="chips" style="margin-top:6px">${sub.pending.map(x=>`<span class="chip">${esc(x.name)}</span>`).join("")}</div></details>`:sub.total?`<p class="hint">全員の希望がそろいました。</p>`:""}</div>
     <div class="gen-form">
      <label class="f" for="offDaysInput">この月の公休数<span class="row"><input id="offDaysInput" type="number" min="0" max="20" value="${esc(off)}"> 日</span></label>
-     <button class="btn primary" data-action="generate" ${S.gen||!S.nurses.length?"disabled":""}>勤務表を作成</button></div>
+     <button class="btn primary" data-action="generate" ${S.gen||!sub.total?"disabled":""}>勤務表を作成</button></div>
    </div>
-   ${S.confirmGen?`<div class="confirm"><span>${monthLabel(m)}の勤務表はすでにあります${doc?.edited?"（手直しも含めて）":""}。新しく作り直すと置き換わり、下書きに戻ります。</span><button class="btn primary small" data-action="generate-yes">置き換えて作成</button><button class="btn small" data-action="generate-no">やめる</button></div>`:""}
-   ${sub.pending.length&&sub.total&&!doc?`<p class="hint">未提出の方がいても作成できます。その方は希望なしとして扱います。</p>`:""}
-   <div id="genProgress" ${S.gen?"":"hidden"} class="stack"><div class="meter"><span id="genBar" style="width:0%"></span></div><p class="hint">配置人数・リーダー・プリセプター・希望を照らし合わせて組み合わせを探しています…</p></div>
+   ${pre.length?`<div class="precheck"><strong>作成前の確認</strong><ul>${pre.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}
+   ${S.confirmGen?`<div class="confirm"><span>${monthLabel(m)}の勤務表はすでにあります${doc?.edited?"（手直しも含めて）":""}。作り直すと置き換わり、下書きに戻ります。</span><button class="btn primary small" data-action="generate-yes">置き換えて作成</button><button class="btn small" data-action="generate-no">やめる</button></div>`:""}
+   <div id="genProgress" ${S.gen?"":"hidden"} class="stack"><div class="meter"><span id="genBar" style="width:0%"></span></div><p class="hint">夜勤の上限・明けの翌日の休み・指定日を守りながら、人数・リーダー・プリセプター・連休・希望を照らし合わせています…</p></div>
   </section>`;}
-
-function fmtTime(t){const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function updateProgress(){const b=$("#genBar");if(b)b.style.width=Math.round(S.genP*100)+"%";}
 
 function tableHtml(m,doc,A){
-  const{M,g,dayStats,nurseStats}=A,{L,mi,nurses}=M,st=S.settings,leaders=doc.leaders||{},nl=doc.nightLeaders||{};
-  const dcls=dy=>holidayOp(dy,st)?"sun":dy.wd===6?"sat":"";
+  const{M,g,dayStats,stats}=A,{L,mi,staff}=M,p=M.p,leaders=doc.leaders||{},nl=doc.nightLeaders||{};
+  const dcls=dy=>holidayOp(dy,p)||dy.hol?"sun":dy.wd===6?"sat":"";
+  const STATS=8;
   let h=`<section class="panel"><div class="panel-head"><h2>${monthLabel(m)} 勤務一覧</h2>
-   <div class="legend"><span><span class="c c-D">日</span>日勤</span><span><span class="c c-D">日<sup>L</sup></span>日勤リーダー</span><span><span class="c c-N">夜</span>夜勤</span><span><span class="c c-A">明</span>夜勤明け</span><span><span class="c c-X" style="border:1px solid var(--line)">休</span>休み</span><span>右上の印：<b style="color:var(--bad)">◤</b>勤務不可 <b style="color:var(--warn)">◤</b>避けたい</span></div></div>
-   ${S.isAdmin?`<p class="hint">マスを押すと勤務を手で直せます。変更はすぐに保存されます。</p>`:""}
+   <div class="legend"><span><span class="c c-D">日</span>日勤</span><span><span class="c c-D">日<sup>L</sup></span>日勤リーダー</span><span><span class="c c-N">夜</span>夜勤入り</span><span><span class="c c-A">明</span>夜勤明け</span><span><span class="c c-X" style="border:1px solid var(--line)">休</span>休み</span><span>●指定日　右上：<b style="color:var(--bad)">◤</b>休み希望・不可 <b style="color:var(--warn)">◤</b>避けたい</span></div></div>
+   ${S.isAdmin?`<p class="hint">マスを押すと勤務を手で直せます。変更はすぐに保存され、下の「確認が必要な点」もその場で更新されます。</p>`:""}
    <div class="scroll"><table class="roster"><thead><tr><th class="name-col">氏名</th>`;
   for(const dy of mi.days)h+=`<th class="day-h ${dcls(dy)}"><span class="dn">${dy.d}</span><span class="dw">${WD[dy.wd]}</span>${dy.hol?`<span class="hol">祝</span>`:""}</th>`;
-  h+=`<th class="stat">日</th><th class="stat">夜</th><th class="stat">休</th><th class="stat" title="「できれば避けたい」と重なった回数">△</th></tr></thead><tbody>`;
-  nurses.forEach((x,i)=>{const s=nurseStats[i];
-    const meta=[`経験${num(x.exp)}年`,x.leader&&!x.isNew?"L":"",x.isNew?"新人":"",x.nightType&&x.nightType!=="normal"?TYPES[x.nightType]:""].filter(Boolean).join("・");
+  h+=`<th class="stat">日</th><th class="stat">夜</th><th class="stat" title="夜勤の前半／後半">前/後</th><th class="stat">休</th><th class="stat" title="2連休の回数">連休</th><th class="stat" title="日曜・祝日の休み">日祝</th><th class="stat" title="「できれば避けたい」と重なった回数">△</th><th class="stat" title="配置人数に数えるか">数</th></tr></thead><tbody>`;
+  let careHeader=false;
+  staff.forEach((x,i)=>{const s=stats[i];
+    if(M.role[i]===1&&!careHeader){careHeader=true;h+=`<tr class="group"><th class="name-col" scope="rowgroup">ケアワーカー</th><td colspan="${L+STATS}"></td></tr>`;}
+    const meta=[`経験${num(x.exp)}年`,M.leader[i]?"L":"",x.isNew?"新人":"",x.nightType&&x.nightType!=="normal"?TYPES[x.nightType]:"",x.excludeFromCount?"人数外":""].filter(Boolean).join("・");
     h+=`<tr><th class="name-col" scope="row"><span class="nm">${esc(x.name)}</span><span class="meta">${esc(meta)}</span></th>`;
     for(let d=0;d<L;d++){const k=i*L+d,v=g[k];
-      const mk=(M.unD[k]||M.unN[k])?"mk-x":(M.avD[k]||M.avN[k])?"mk-tri":"";
-      const hit=((v===1||v===3)&&M.unD[k])||(v===2&&M.unN[k])?"hit-x":((v===1&&M.avD[k])||(v===2&&M.avN[k]))?"hit-tri":"";
+      const mk=(M.off[k]||M.unD[k]||M.unN[k])?"mk-x":(M.avD[k]||M.avN[k])?"mk-tri":"";
+      const hit=(M.off[k]&&v)||((v===1)&&M.unD[k])||(v===2&&M.unN[k])||(M.fix[k]&&v!==M.fix[k])?"hit-x":((v===1&&M.avD[k])||(v===2&&M.avN[k]))?"hit-tri":"";
       const lab=LABEL[v]+((v===1&&leaders[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"<sup>L</sup>":"");
-      const tip=[M.unD[k]?"日勤帯：不可":M.avD[k]?"日勤帯：避けたい":"",M.unN[k]?"夜勤帯：不可":M.avN[k]?"夜勤帯：避けたい":""].filter(Boolean).join(" / ");
-      const label=`${x.name} ${d+1}日 ${LABEL[v]}${tip?"（希望 "+tip+"）":""}`;
-      h+=`<td class="cell c-${CH[v]} ${mk} ${hit}" ${tip?`title="${esc(tip)}"`:""}>${S.isAdmin?`<button data-action="cell" data-nid="${esc(x._id)}" data-d="${d}" aria-label="${esc(label)}">${lab}</button>`:`<span aria-label="${esc(label)}">${lab}</span>`}</td>`;}
-    h+=`<td class="stat">${s.D}</td><td class="stat">${s.N}</td><td class="stat ${M.type[i]!=="nightOnly"&&s.off!==M.offTarget?"off-dev":""}">${s.off}</td><td class="stat">${s.hit||""}</td></tr>`;});
-  h+=`</tbody><tfoot><tr><th class="name-col" scope="row">日勤 人数</th>`;
-  dayStats.forEach(s=>{h+=`<td class="${s.cD<s.reqD?"short":s.cD>s.reqD?"over":""}">${s.cD}<small>/${s.reqD}</small></td>`;});
-  h+=`<td colspan="4"></td></tr><tr><th class="name-col" scope="row">夜勤 人数</th>`;
-  dayStats.forEach(s=>{h+=`<td class="${s.cN<s.reqN?"short":s.cN>s.reqN?"over":""}">${s.cN}<small>/${s.reqN}</small></td>`;});
-  h+=`<td colspan="4"></td></tr><tr><th class="name-col" scope="row">日勤リーダー</th>`;
-  dayStats.forEach(s=>{h+=s.leadReq?(s.leader?`<td title="${esc(s.leader.name)}">${esc(shortName(s.leader).slice(0,2))}</td>`:`<td class="short">!</td>`):`<td class="muted">—</td>`;});
-  h+=`<td colspan="4"></td></tr>`;
-  if(st.nightLeader){h+=`<tr><th class="name-col" scope="row">夜勤リーダー</th>`;dayStats.forEach(s=>{h+=s.reqN>0?(s.nightLeader?`<td title="${esc(s.nightLeader.name)}">${esc(shortName(s.nightLeader).slice(0,2))}</td>`:`<td class="short">!</td>`):`<td class="muted">—</td>`;});h+=`<td colspan="4"></td></tr>`;}
+      const tip=[M.off[k]?"休み希望":"",M.fix[k]?`${M.fix[k]===1?"日勤":"夜勤"}指定${M.label[k]?"："+M.label[k]:""}`:"",M.unD[k]?"日勤不可":M.avD[k]?"日勤は避けたい":"",M.unN[k]?"夜勤不可":M.avN[k]?"夜勤は避けたい":""].filter(Boolean).join(" / ");
+      const label=`${x.name} ${d+1}日 ${LABEL[v]}${tip?"（"+tip+"）":""}`;
+      h+=`<td class="cell c-${CH[v]} ${mk} ${hit} ${M.fix[k]?"fixed":""}" ${tip?`title="${esc(tip)}"`:""}>${S.isAdmin?`<button data-action="cell" data-sid="${esc(x._id)}" data-d="${d}" aria-label="${esc(label)}">${lab}</button>`:`<span aria-label="${esc(label)}">${lab}</span>`}</td>`;}
+    const offDev=M.type[i]!=="nightOnly"&&s.off!==M.offTarget;
+    h+=`<td class="stat">${s.D}</td><td class="stat ${s.N>M.maxN[i]?"dev":""}">${s.N}</td><td class="stat ${M.nightHalf&&Math.abs(s.h1-s.h2)>1?"soft":""}">${s.N?s.h1+"/"+s.h2:""}</td><td class="stat ${offDev?"soft":""}">${s.off}</td><td class="stat ${s.pairs<M.dblWant[i]?"soft":""}">${s.pairs}</td><td class="stat ${s.hol<M.holMin?"soft":""}">${s.hol}</td><td class="stat">${s.hit||""}</td><td class="stat">${M.cnt[i]?"":"外"}</td></tr>`;});
+  h+=`</tbody><tfoot>`;
+  const foot=(label,fn)=>{h+=`<tr><th class="name-col" scope="row">${label}</th>`;dayStats.forEach(s=>{h+=fn(s);});h+=`<td colspan="${STATS}"></td></tr>`;};
+  const cntCell=(c,r)=>`<td class="${c<r?"short":c>r?"over":""}">${c}<small>/${r}</small></td>`;
+  const hasCare=M.role.includes(1)||M.reqD[1].some(Boolean)||M.reqN[1].some(Boolean);
+  foot("日勤 看護師",s=>cntCell(s.cD[0],s.reqD[0]));
+  foot("夜勤 看護師",s=>cntCell(s.cN[0],s.reqN[0]));
+  if(hasCare){foot("日勤 ケアワーカー",s=>cntCell(s.cD[1],s.reqD[1]));foot("夜勤 ケアワーカー",s=>cntCell(s.cN[1],s.reqN[1]));}
+  foot("日勤リーダー",s=>s.leadReq?(s.leader?`<td title="${esc(s.leader.name)}">${esc(shortName(s.leader).slice(0,2))}</td>`:`<td class="short">!</td>`):`<td class="muted">—</td>`);
+  if(p.nightLeader)foot("夜勤リーダー",s=>s.reqN[0]>0?(s.nightLeader?`<td title="${esc(s.nightLeader.name)}">${esc(shortName(s.nightLeader).slice(0,2))}</td>`:`<td class="short">!</td>`):`<td class="muted">—</td>`);
   h+=`</tfoot></table></div></section>`;
   return h;}
 
 function issuesHtml(A){
-  const bad=A.issues.filter(x=>x.lv==="bad").length,warn=A.issues.filter(x=>x.lv==="warn").length,info=A.issues.filter(x=>x.lv==="info").length;
-  const list=A.issues.slice(0,80);
-  const notes=A.M.nurses.map((x,i)=>A.M.note[i]?`<li><span class="lv chip">メモ</span><span>${esc(x.name)}：${esc(A.M.note[i])}</span></li>`:"").join("");
-  return `<section class="panel"><div class="panel-head"><h2>確認が必要な点</h2><div class="chips">${bad?`<span class="chip bad">要対応 ${bad}</span>`:`<span class="chip ok">配置条件はすべて満たしています</span>`}${warn?`<span class="chip warn">注意 ${warn}</span>`:""}${info?`<span class="chip">希望との重なり ${info}名</span>`:""}</div></div>
-   ${list.length?`<ul class="issues">${list.map(x=>`<li><span class="lv chip ${x.lv==="info"?"":x.lv}">${x.lv==="bad"?"要対応":x.lv==="warn"?"注意":"希望"}</span><span>${esc(x.t)}</span></li>`).join("")}${A.issues.length>80?`<li class="hint">ほか${A.issues.length-80}件</li>`:""}</ul>`:""}
-   ${notes?`<h3>看護師からの自由記載</h3><ul class="issues">${notes}</ul>`:""}
-   <p class="hint">自動作成は「人数不足・リーダー・プリセプター・同時勤務NG」を最優先し、次に公休数と夜勤回数のかたより、最後に「できれば避けたい」を考慮します。条件どうしがぶつかる月は、すべてを満たせないことがあります。</p></section>`;}
+  const c=lv=>A.issues.filter(x=>x.lv===lv).length,bad=c("bad"),warn=c("warn"),info=c("info");
+  const list=A.issues.slice(0,100);
+  const notes=A.M.staff.map((x,i)=>A.M.note[i]?`<li><span class="lv chip">メモ</span><span>${esc(x.name)}：${esc(A.M.note[i])}</span></li>`:"").join("");
+  return `<section class="panel"><div class="panel-head"><h2>確認が必要な点</h2><div class="chips">${bad?`<span class="chip bad">要対応 ${bad}</span>`:`<span class="chip ok">必須の条件はすべて満たしています</span>`}${warn?`<span class="chip warn">注意 ${warn}</span>`:""}${info?`<span class="chip">参考 ${info}</span>`:""}</div></div>
+   ${list.length?`<ul class="issues">${list.map(x=>`<li><span class="lv chip ${x.lv==="info"?"":x.lv}">${x.lv==="bad"?"要対応":x.lv==="warn"?"注意":"参考"}</span><span>${esc(x.t)}</span></li>`).join("")}${A.issues.length>100?`<li class="hint">ほか${A.issues.length-100}件</li>`:""}</ul>`:""}
+   ${notes?`<h3>スタッフからの自由記載</h3><ul class="issues">${notes}</ul>`:""}
+   <p class="hint">自動作成では、休み希望・勤務指定・夜勤の上限・夜勤入りと明けのセット・明けの翌日の休み・夜勤専従の条件を<strong>必ず守ります</strong>。そのうえで、人数・リーダー・プリセプター・同時勤務NGを最優先し、次に公休数・2連休・日曜祝日の休み・夜勤の偏り、最後に「できれば避けたい」を考えます。</p></section>`;}
 
-/* 希望入力 */
+/* 希望・指定 */
+const REQ_MODES=[["off","休み希望"],["x","× 不可"],["tri","△ 避けたい"],["fixD","日勤指定"],["fixN","夜勤指定"],["clear","消す"]];
 function renderRequests(){
-  const m=S.month,ns=sortedNurses();
-  if(!ns.length){$("#main").innerHTML=`<div class="empty"><h2>スタッフ名簿がまだありません</h2><p class="muted">看護師長がスタッフを登録すると、ここで自分の名前を選んで希望を入力できます。</p></div>`;return;}
+  const wid=S.wardId,m=S.month,ns=staffOf(wid);
+  if(!ns.length){$("#main").innerHTML=`<div class="empty"><h2>${esc(wardName(wid))}のスタッフ名簿がまだありません</h2><p class="muted">看護師長がスタッフを登録すると、ここで自分の名前を選んで入力できます。</p></div>`;return;}
   if(!S.isAdmin&&S.mode==="shared"&&!S.uid){$("#main").innerHTML=`<div class="empty"><h2>サインインが必要です</h2><p class="muted">希望を提出するには claude.ai にサインインした状態で開いてください。</p></div>`;return;}
   const own=!S.isAdmin&&S.uid?S.requests[S.uid]:null;
-  if(!S.reqSel||!nurseById(S.reqSel))S.reqSel=own?.nurseId&&nurseById(own.nurseId)?own.nurseId:(S.isAdmin?ns[0]._id:null);
-  const nid=S.reqSel;
-  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>${monthLabel(m)}の勤務希望</h2>
-    <p class="hint">締切：${monthLabel(addMonth(m,-1))}${S.settings.deadlineDay}日。勤務できない日と、できれば避けたい日を、日勤帯・夜勤帯ごとに入力してください。</p></div></div>
-   <label class="f" for="reqNurse">${S.isAdmin?"入力する看護師（師長による代理入力）":"あなたの名前"}
-    <select id="reqNurse"><option value="">選んでください</option>${ns.map(x=>`<option value="${esc(x._id)}" ${x._id===nid?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>`;
-  if(!nid){$("#main").innerHTML=h+`</section>`;return;}
-  loadDraft(nid,m);
-  const r=requestFor(nid,m);
-  h+=`<div class="row"><span class="hint">入力のしかた</span><div class="seg" role="group" aria-label="入力のしかた">
-     <button data-action="req-mode" data-v="2" aria-pressed="${S.reqMode===2}">× 勤務できない</button>
-     <button data-action="req-mode" data-v="1" aria-pressed="${S.reqMode===1}">△ できれば避けたい</button>
-     <button data-action="req-mode" data-v="0" aria-pressed="${S.reqMode===0}">消す</button></div></div>
-   <p class="hint">日付を押すと日勤帯・夜勤帯の両方に、下の「日」「夜」を押すとその時間帯だけに入ります。夜勤は翌朝の明けまで続くため、翌日の日勤帯を×にすると前日の夜勤にも入りません。</p>
-   <div id="reqCal">${calHtml(m)}</div>
+  if(!S.reqSel||!ns.some(x=>x._id===S.reqSel)){const oid=own?.staffId;S.reqSel=oid&&ns.some(x=>x._id===oid)?oid:(S.isAdmin?ns[0]._id:null);}
+  const sid=S.reqSel,p=prof();
+  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>${monthLabel(m)}の希望・勤務指定</h2>
+    <p class="hint">締切：${monthLabel(addMonth(m,-1))}${p.deadlineDay}日。休み希望、勤務できない時間帯、委員会・会議などで勤務が決まっている日を入力してください。</p></div></div>
+   <label class="f" for="reqStaff">${S.isAdmin?"入力するスタッフ（師長による代理入力）":"あなたの名前"}
+    <select id="reqStaff"><option value="">選んでください</option>${ns.map(x=>`<option value="${esc(x._id)}" ${x._id===sid?"selected":""}>${esc(x.name)}${x.role==="care"?"（ケアワーカー）":""}</option>`).join("")}</select></label>`;
+  if(!sid){$("#main").innerHTML=h+`</section>`;return;}
+  loadDraft(sid,m);
+  const r=requestFor(sid,m),x=staffById(sid);
+  h+=`<div class="stack"><span class="hint">入力のしかたを選んでから、日付や「日」「夜」を押します</span><div class="seg" role="group" aria-label="入力のしかた">
+     ${REQ_MODES.map(([k,l])=>`<button data-action="req-mode" data-v="${k}" aria-pressed="${S.reqMode===k}">${l}</button>`).join("")}</div></div>
+   <div id="reqModeHelp">${modeHelp()}</div>
+   <div id="reqCal">${calHtml(m,x)}</div>
+   ${x&&x.weekly&&Object.values(x.weekly).some(Boolean)?`<p class="hint">薄い字の「毎週」は、スタッフ情報に登録された曜日ごとの条件です。この画面で入力した日は、そちらより優先されます。</p>`:""}
    <label class="f" for="reqNote">自由記載（理由や、ほかに伝えたいこと）<textarea id="reqNote" maxlength="400" placeholder="例：14日は研修のため日勤のみ可能です">${esc(S.reqDraft.note)}</textarea></label>
    <div class="row" style="justify-content:space-between"><span class="hint" id="reqStatus">${reqStatus(r)}</span>
-    <div class="row"><button class="btn" data-action="req-save" data-submit="0">一時保存</button><button class="btn primary" data-action="req-save" data-submit="1">${r?.submitted?"内容を更新して提出":"希望を提出する"}</button></div></div>
+    <div class="row"><button class="btn" data-action="req-save" data-submit="0">一時保存</button><button class="btn primary" data-action="req-save" data-submit="1">${r?.submitted?"内容を更新して提出":"提出する"}</button></div></div>
   </section>`;
   $("#main").innerHTML=h;}
-
-function reqStatus(r){if(!r)return "まだ入力されていません";const who=r.by==="manager"?"（師長が入力）":"";return (r.submitted?`提出済み ${fmtTime(r.updatedAt)}`:`一時保存 ${fmtTime(r.updatedAt)}・まだ提出されていません`)+who+(S.reqDraft?.dirty?"／未保存の変更があります":"");}
-function loadDraft(nid,m){const key=nid+"|"+m;if(S.reqDraft&&S.reqDraft.key===key&&S.reqDraft.dirty)return;
-  const r=requestFor(nid,m);S.reqDraft={key,nid,m,cells:clone(r?.cells||{}),note:r?.note||"",dirty:false};}
-function calHtml(m){
-  const mi=monthInfo(m),c=S.reqDraft.cells,mark=["","△","×"];
+function modeHelp(){
+  const t={off:"日付を押すと、その日を休み希望（終日勤務不可）にします。前日の夜勤にも入りません。",
+    x:"「日」「夜」を押すと、その時間帯だけ勤務不可にします。日付を押すと両方です。",
+    tri:"「日」「夜」を押すと、その時間帯を「できれば避けたい」にします。日付を押すと両方です。",
+    fixD:"日付を押すと、その日を日勤に決めます（委員会・会議・研修など）。必ず日勤で組まれます。",
+    fixN:"日付を押すと、その日を夜勤入りに決めます。翌日は明け、明けの翌日は休みになります（夜勤専従の方の勤務日にも使います）。",
+    clear:"日付を押すと、その日の入力を消します。"}[S.reqMode];
+  const lab=S.reqMode==="fixD"||S.reqMode==="fixN"?`<label class="f" for="reqLabel" style="max-width:320px">指定の理由（任意・勤務表に表示）<input type="text" id="reqLabel" maxlength="16" value="${esc(S.reqLabel)}" placeholder="例：感染対策委員会"></label>`:"";
+  return `<div class="stack"><p class="hint">${t}</p>${lab}</div>`;}
+function reqStatus(r){if(!r)return "まだ入力されていません";const who=r.by==="manager"?"（師長が入力）":"";return(r.submitted?`提出済み ${fmtTime(r.updatedAt)}`:`一時保存 ${fmtTime(r.updatedAt)}・まだ提出されていません`)+who+(S.reqDraft?.dirty?"／未保存の変更があります":"");}
+function loadDraft(sid,m){const key=sid+"|"+m;if(S.reqDraft&&S.reqDraft.key===key&&S.reqDraft.dirty)return;
+  const r=requestFor(sid,m);S.reqDraft={key,sid,m,days:clone(r?.days||{}),note:r?.note||"",dirty:false};}
+function calHtml(m,x){
+  const mi=monthInfo(m),days=S.reqDraft.days,mark=["","△","×"],p=prof();
   let h=`<div class="cal">${WD.map((w,i)=>`<div class="wh ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<mi.days[0].wd;i++)h+=`<div class="dc blank"></div>`;
-  for(const dy of mi.days){const v=c[dy.d]||{},D=v.D||0,N=v.N||0;
-    h+=`<div class="dc ${holidayOp(dy,S.settings)||dy.hol?"sun":dy.wd===6?"sat":""}"><button class="dbtn" data-action="req-day" data-d="${dy.d}" aria-label="${dy.d}日 両方の時間帯">${dy.d}${dy.hol?"<small>祝</small>":""}</button>
-     <button class="slot s${D}" data-action="req-slot" data-d="${dy.d}" data-s="D" aria-label="${dy.d}日 日勤帯 ${["指定なし","避けたい","勤務不可"][D]}"><span class="lb">日</span><span class="st">${mark[D]}</span></button>
-     <button class="slot s${N}" data-action="req-slot" data-d="${dy.d}" data-s="N" aria-label="${dy.d}日 夜勤帯 ${["指定なし","避けたい","勤務不可"][N]}"><span class="lb">夜</span><span class="st">${mark[N]}</span></button></div>`;}
+  for(const dy of mi.days){const c=days[dy.d]||{},D=c.D||0,N=c.N||0;
+    const wk=x?.weekly?.[dy.wd]||"",tag=c.off?"休み希望":c.fix==="D"?(c.label||"日勤指定"):c.fix==="N"?(c.label||"夜勤指定"):"";
+    const cls=c.off?"is-off":c.fix==="D"?"is-fixD":c.fix==="N"?"is-fixN":"";
+    h+=`<div class="dc ${holidayOp(dy,p)||dy.hol?"sun":dy.wd===6?"sat":""} ${cls}"><button class="dbtn" data-action="req-day" data-d="${dy.d}" aria-label="${dy.d}日 ${esc(tag||"入力なし")}"><span>${dy.d}${dy.hol?"<small>祝</small>":""}</span><span class="tag">${esc(tag)}</span></button>
+     ${!Object.keys(c).length&&wk?`<div class="weekly">毎週：${esc(WEEKLY[wk])}</div>`:""}
+     <button class="slot s${D}" data-action="req-slot" data-d="${dy.d}" data-s="D" aria-label="${dy.d}日 日勤帯 ${["指定なし","避けたい","不可"][D]}"><span class="lb">日</span><span class="st">${mark[D]}</span></button>
+     <button class="slot s${N}" data-action="req-slot" data-d="${dy.d}" data-s="N" aria-label="${dy.d}日 夜勤帯 ${["指定なし","避けたい","不可"][N]}"><span class="lb">夜</span><span class="st">${mark[N]}</span></button></div>`;}
   return h+`</div>`;}
-function setSlot(d,s,v){const c=S.reqDraft.cells,o=c[d]||{};if(v)o[s]=v;else delete o[s];if(o.D||o.N)c[d]=o;else delete c[d];S.reqDraft.dirty=true;}
-
+function applyReq(d,slot){
+  const days=S.reqDraft.days,c={...(days[d]||{})},mode=S.reqMode;
+  if(mode==="clear"){delete days[d];}
+  else if(mode==="off"){if(c.off)delete days[d];else days[d]={off:1};}
+  else if(mode==="fixD"||mode==="fixN"){const f=mode==="fixD"?"D":"N";
+    if(c.fix===f)delete days[d];else{const o={fix:f};if(S.reqLabel.trim())o.label=S.reqLabel.trim();days[d]=o;}}
+  else{const v=mode==="x"?2:1;delete c.off;delete c.fix;delete c.label;
+    const slots=slot?[slot]:["D","N"],all=slots.every(s=>(c[s]||0)===v);
+    slots.forEach(s=>{if(all)delete c[s];else c[s]=v;});
+    if(c.D||c.N)days[d]=c;else delete days[d];}
+  S.reqDraft.dirty=true;}
 async function saveRequest(submit){
-  const dr=S.reqDraft;if(!dr)return;const docId=myReqDocId(dr.nid);if(!docId){toast("サインインすると保存できます。");return;}
+  const dr=S.reqDraft;if(!dr)return;const docId=myReqDocId(dr.sid);if(!docId){toast("サインインすると保存できます。");return;}
   const cur=S.requests[docId];
-  const base=cur&&cur.nurseId===dr.nid?{...cur}:{nurseId:dr.nid,months:{}};
-  delete base._id;
-  base.months={...(base.months||{}),[dr.m]:{cells:dr.cells,note:dr.note,submitted:!!submit,updatedAt:Date.now(),by:S.isAdmin?"manager":"self"}};
-  base.nurseId=dr.nid;
-  try{await Store.set("requests/"+docId,base);dr.dirty=false;toast(submit?"希望を提出しました。":"一時保存しました。まだ提出はされていません。");render();}catch(e){writeError(e);}}
+  const base=cur&&cur.staffId===dr.sid?{...cur}:{staffId:dr.sid,months:{}};
+  base.wardId=staffById(dr.sid)?.wardId||S.wardId;base.staffId=dr.sid;
+  base.months={...(base.months||{}),[dr.m]:{days:dr.days,note:dr.note,submitted:!!submit,updatedAt:Date.now(),by:S.isAdmin?"manager":"self"}};
+  try{await Store.set("requests/"+docId,base);dr.dirty=false;toast(submit?"提出しました。":"一時保存しました。まだ提出はされていません。");render();}catch(e){writeError(e);}}
 
 /* スタッフ */
 function renderStaff(){
-  const ns=sortedNurses(),hasSample=ns.some(x=>x.sample);
-  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>スタッフ ${ns.length}名</h2><p class="hint">経験年数の長い順に並びます。勤務表もこの順です。</p></div>
-    <div class="row">${hasSample?(S.staffDel==="__sample"?`<span class="hint">例のスタッフとその希望を削除します。</span><button class="btn danger small" data-action="unseed-yes">削除する</button><button class="btn small" data-action="unseed-no">やめる</button>`:`<button class="btn small" data-action="unseed">例のスタッフを削除</button>`):""}
-    <button class="btn primary" data-action="staff-new">＋ スタッフを追加</button></div></div>
+  const wid=S.wardId,ns=staffOf(wid),hasSample=ns.some(x=>x.sample),p=prof();
+  const nurses=ns.filter(x=>(x.role||"nurse")==="nurse"),cares=ns.filter(x=>x.role==="care");
+  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>${esc(wardName(wid))}のスタッフ</h2><p class="hint">看護師${nurses.length}名・ケアワーカー${cares.length}名。勤務表はこの並び順で表示されます（↑↓で入れ替え）。</p></div>
+    <div class="row">${ns.length>1?`<button class="btn small" data-action="staff-resort">経験年数順に並べ直す</button>`:""}
+     ${hasSample?(S.staffDel==="__sample"?`<span class="hint">例のスタッフとその希望を削除します。</span><button class="btn danger small" data-action="unseed-yes">削除する</button><button class="btn small" data-action="unseed-no">やめる</button>`:`<button class="btn small" data-action="unseed">例のスタッフを削除</button>`):""}
+     <button class="btn primary" data-action="staff-new">＋ スタッフを追加</button></div></div>
    <div id="staffEditor">${S.staffEdit?editorHtml(S.staffEdit):""}</div>`;
-  if(!ns.length)h+=`<div class="empty"><p>病棟に勤務している看護師を一人ずつ登録してください。動きを試したいときは、例のスタッフ24名（名前に「例）」が付きます）をまとめて登録できます。</p><button class="btn" data-action="seed">例のスタッフ24名を登録</button></div>`;
-  else{h+=`<div class="tbl-wrap"><table class="list"><thead><tr><th>氏名</th><th>入職年数</th><th>経験年数</th><th>リーダー</th><th>勤務タイプ</th><th>夜勤上限</th><th>新人・プリセプター</th><th></th></tr></thead><tbody>`;
-    ns.forEach(x=>{const p=x.isNew&&x.preceptorId?nurseById(x.preceptorId):null;
-      h+=`<tr><td><strong>${esc(x.name)}</strong>${x.memo?`<div class="hint">${esc(x.memo)}</div>`:""}</td><td class="num">${num(x.tenure)}年</td><td class="num">${num(x.exp)}年</td>
-       <td>${x.leader&&!x.isNew?`<span class="chip accent">可</span>`:"—"}</td><td>${esc(TYPES[x.nightType||"normal"])}</td><td class="num">${nightCap(x,S.settings)}回${x.maxNights!==""&&x.maxNights!=null?"（個別）":""}</td>
-       <td>${x.isNew?`<span class="chip warn">新人</span> ${p?"担当："+esc(p.name):"担当未設定"}`:"—"}</td>
-       <td><button class="btn small" data-action="staff-edit" data-id="${esc(x._id)}">編集</button></td></tr>`;});
-    h+=`</tbody></table></div>`;}
+  if(!ns.length)h+=`<div class="empty"><p>この病棟に勤務している看護師・ケアワーカーを一人ずつ登録してください。動きを試したいときは、例のスタッフ27名（名前に「例）」が付きます）をまとめて登録できます。</p><button class="btn" data-action="seed">例のスタッフ27名を登録</button></div>`;
+  else{const tbl=(list,title)=>{if(!list.length)return "";let t=`<h3>${title}</h3><div class="tbl-wrap"><table class="list"><thead><tr><th>順</th><th>氏名</th><th>入職</th><th>経験</th><th>リーダー</th><th>勤務タイプ</th><th>夜勤上限</th><th>条件</th><th></th></tr></thead><tbody>`;
+      list.forEach((x,i)=>{const pr=x.isNew&&x.preceptorId?staffById(x.preceptorId):null;
+        const cond=[x.isNew?`新人${pr?"（担当："+pr.name+"）":""}`:"",x.excludeFromCount?"配置人数に数えない":"",x.onlyDesignatedNights?"夜勤は指定日のみ":"",
+          x.doubleOff!==""&&x.doubleOff!=null?`2連休${x.doubleOff}回`:"",Object.entries(x.weekly||{}).filter(([,v])=>v).map(([w,v])=>`毎週${WD[w]}:${WEEKLY[v]}`).join(" ")].filter(Boolean).join("・");
+        t+=`<tr><td><div class="ord"><button data-action="staff-up" data-id="${esc(x._id)}" aria-label="${esc(x.name)}を上へ" ${i===0?"disabled":""}>↑</button><button data-action="staff-down" data-id="${esc(x._id)}" aria-label="${esc(x.name)}を下へ" ${i===list.length-1?"disabled":""}>↓</button></div></td>
+         <td><strong>${esc(x.name)}</strong>${x.memo?`<div class="hint">${esc(x.memo)}</div>`:""}</td><td class="num">${num(x.tenure)}年</td><td class="num">${num(x.exp)}年</td>
+         <td>${x.leader&&!x.isNew&&x.role!=="care"?`<span class="chip accent">可</span>`:"—"}</td><td>${esc(TYPES[x.nightType||"normal"])}</td><td class="num">${nightCap(x,p)}回${x.maxNights!==""&&x.maxNights!=null?"（個別）":""}</td>
+         <td style="white-space:normal;min-width:160px">${esc(cond)||"—"}</td>
+         <td><button class="btn small" data-action="staff-edit" data-id="${esc(x._id)}">編集</button></td></tr>`;});
+      return t+`</tbody></table></div>`;};
+    h+=tbl(nurses,"看護師")+tbl(cares,"ケアワーカー");}
   $("#main").innerHTML=h+`</section>`;}
 
 function editorHtml(e){
-  const st=S.settings,cands=sortedNurses().filter(x=>x._id!==e._id&&!x.isNew&&num(x.exp)>=num(st.preceptor.minExp,3));
-  return `<form class="editor" id="staffForm" novalidate><h3>${e._id?"スタッフ情報の編集":"スタッフの追加"}</h3>
+  const p=prof(),isCare=e.role==="care";
+  const cands=staffOf(S.wardId).filter(x=>x._id!==e._id&&(x.role||"nurse")==="nurse"&&!x.isNew&&num(x.exp)>=num(p.preceptor.minExp,3));
+  return `<form class="editor" id="staffForm" novalidate><h3>${e._id?"スタッフ情報の編集":"スタッフの追加"}（${esc(wardName(S.wardId))}）</h3>
    <div class="fgrid">
+    <label class="f" for="fRole">職種<select id="fRole">${Object.entries(ROLES).map(([k,l])=>`<option value="${k}" ${(e.role||"nurse")===k?"selected":""}>${l}</option>`).join("")}</select></label>
     <label class="f" for="fName">氏名<input type="text" id="fName" value="${esc(e.name||"")}" required maxlength="40" placeholder="例：山田 花子"></label>
     <label class="f" for="fTenure">入職年数（この病院で）<span class="row"><input type="number" id="fTenure" min="0" max="50" value="${esc(e.tenure??0)}"> 年</span></label>
-    <label class="f" for="fExp">看護師経験年数<span class="row"><input type="number" id="fExp" min="0" max="50" value="${esc(e.exp??0)}"> 年</span></label>
+    <label class="f" for="fExp">経験年数<span class="row"><input type="number" id="fExp" min="0" max="50" value="${esc(e.exp??0)}"> 年</span></label>
     <label class="f" for="fType">勤務タイプ<select id="fType">${Object.entries(TYPES).map(([k,l])=>`<option value="${k}" ${(e.nightType||"normal")===k?"selected":""}>${l}</option>`).join("")}</select></label>
-    <label class="f" for="fMaxN">夜勤回数の上限（空欄でタイプの既定値）<span class="row"><input type="number" id="fMaxN" min="0" max="20" value="${esc(e.maxNights??"")}"> 回/月</span></label>
+    <label class="f" for="fMaxN">夜勤回数の上限（空欄で病棟の既定値）<span class="row"><input type="number" id="fMaxN" min="0" max="20" value="${esc(e.maxNights??"")}"> 回/月</span></label>
+    <label class="f" for="fDbl">2連休の回数（空欄で病棟の既定値 ${num(p.doubleOff)}回）<span class="row"><input type="number" id="fDbl" min="0" max="6" value="${esc(e.doubleOff??"")}"> 回/月</span></label>
    </div>
-   <div class="row" style="gap:18px"><label class="check"><input type="checkbox" id="fLeader" ${e.leader?"checked":""}> 日勤リーダーができる</label>
-    <label class="check"><input type="checkbox" id="fNew" ${e.isNew?"checked":""}> 新人（プリセプターと同じ勤務帯に配置）</label></div>
-   <label class="f" for="fPrec">担当プリセプター（新人の場合・経験${num(st.preceptor.minExp,3)}年以上）<select id="fPrec"><option value="">指定しない（経験${num(st.preceptor.minExp,3)}年以上の誰かがいればよい）</option>${cands.map(x=>`<option value="${esc(x._id)}" ${e.preceptorId===x._id?"selected":""}>${esc(x.name)}（経験${num(x.exp)}年）</option>`).join("")}</select></label>
-   <label class="f" for="fMemo">メモ（勤務表には出ません）<input type="text" id="fMemo" maxlength="80" value="${esc(e.memo||"")}" placeholder="例：育児短時間勤務"></label>
+   <div class="row" style="gap:18px">
+    <label class="check" ${isCare?"hidden":""} id="fLeaderWrap"><input type="checkbox" id="fLeader" ${e.leader?"checked":""}> 日勤リーダーができる</label>
+    <label class="check" ${isCare?"hidden":""} id="fNewWrap"><input type="checkbox" id="fNew" ${e.isNew?"checked":""}> 新人（プリセプターと同じ勤務帯に配置）</label>
+    <label class="check"><input type="checkbox" id="fExcl" ${e.excludeFromCount?"checked":""}> 日勤・夜勤の配置人数に数えない（育児時短勤務など）</label>
+    <label class="check"><input type="checkbox" id="fOnlyFix" ${e.onlyDesignatedNights?"checked":""}> 夜勤は「夜勤指定」した日だけ入れる（夜勤専従向け）</label></div>
+   <label class="f" for="fPrec" ${isCare?"hidden":""} id="fPrecWrap">担当プリセプター（新人の場合・経験${num(p.preceptor.minExp,3)}年以上）<select id="fPrec"><option value="">指定しない（経験${num(p.preceptor.minExp,3)}年以上の誰かがいればよい）</option>${cands.map(x=>`<option value="${esc(x._id)}" ${e.preceptorId===x._id?"selected":""}>${esc(x.name)}（経験${num(x.exp)}年）</option>`).join("")}</select></label>
+   <fieldset><legend>曜日ごとの決まった条件（毎週）</legend><div class="weekly-grid">${WD_ORDER.map(w=>`<label for="fW${w}">${WD[w]}<select id="fW${w}">${Object.entries(WEEKLY).map(([k,l])=>`<option value="${k}" ${((e.weekly||{})[w]||"")===k?"selected":""}>${l}</option>`).join("")}</select></label>`).join("")}</div>
+    <p class="hint" style="margin-top:6px">例：育児時短で土日は休み、毎週水曜は日勤。月ごとの希望・指定を入れた日は、そちらが優先されます。</p></fieldset>
+   <label class="f" for="fMemo">メモ（勤務表には出ません）<input type="text" id="fMemo" maxlength="80" value="${esc(e.memo||"")}" placeholder="例：育児短時間勤務（9〜16時）"></label>
    <div class="row" style="justify-content:space-between">
     <div class="row">${e._id?(S.staffDel===e._id?`<span class="hint">${esc(e.name)}さんを名簿から削除します。</span><button type="button" class="btn danger small" data-action="staff-del-yes">削除する</button><button type="button" class="btn small" data-action="staff-del-no">やめる</button>`:`<button type="button" class="btn danger small" data-action="staff-del">削除</button>`):""}</div>
     <div class="row"><button type="button" class="btn" data-action="staff-cancel">閉じる</button><button type="submit" class="btn primary">保存</button></div></div>
@@ -643,28 +797,83 @@ function editorHtml(e){
 
 async function saveStaff(){
   const e=S.staffEdit;const name=$("#fName").value.trim();if(!name){toast("氏名を入力してください。");$("#fName").focus();return;}
-  const data={name,tenure:num($("#fTenure").value,0),exp:num($("#fExp").value,0),nightType:$("#fType").value,
-    maxNights:$("#fMaxN").value===""?"":num($("#fMaxN").value,0),leader:$("#fLeader").checked,isNew:$("#fNew").checked,
-    preceptorId:$("#fNew").checked?$("#fPrec").value:"",memo:$("#fMemo").value.trim()};
-  if(e.sample)data.sample=true;
-  const id=e._id||("n"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
-  try{await Store.set("nurses/"+id,data);S.staffEdit=null;toast(`${name}さんを保存しました。`);render();}catch(err){writeError(err);}}
+  const role=$("#fRole").value,isCare=role==="care",weekly={};
+  WD_ORDER.forEach(w=>{const v=$("#fW"+w).value;if(v)weekly[w]=v;});
+  const list=staffOf(S.wardId);
+  const data={...e,wardId:e.wardId||S.wardId,role,name,tenure:num($("#fTenure").value,0),exp:num($("#fExp").value,0),nightType:$("#fType").value,
+    maxNights:$("#fMaxN").value===""?"":num($("#fMaxN").value,0),doubleOff:$("#fDbl").value===""?"":num($("#fDbl").value,0),
+    leader:!isCare&&$("#fLeader").checked,isNew:!isCare&&$("#fNew").checked,preceptorId:!isCare&&$("#fNew").checked?$("#fPrec").value:"",
+    excludeFromCount:$("#fExcl").checked,onlyDesignatedNights:$("#fOnlyFix").checked,weekly,memo:$("#fMemo").value.trim(),
+    order:e.order??(list.reduce((a,x)=>Math.max(a,num(x.order,0)),0)+1)};
+  const id=e._id||newId("s");delete data._id;
+  try{await Store.set("staff/"+id,data);S.staffEdit=null;toast(`${name}さんを保存しました。`);render();}catch(err){writeError(err);}}
+async function moveStaff(id,dir){
+  const x=staffById(id);if(!x)return;const list=staffOf(S.wardId).filter(y=>(y.role||"nurse")===(x.role||"nurse"));
+  const i=list.findIndex(y=>y._id===id),j=i+dir;if(j<0||j>=list.length)return;
+  const all=staffOf(S.wardId);const needs=all.some(y=>y.order==null||y.order==="");
+  try{
+    if(needs){for(let q=0;q<all.length;q++)await Store.set("staff/"+all[q]._id,{...all[q],order:q+1});}
+    const a=staffById(list[i]._id),b=staffById(list[j]._id),oa=num(a.order),ob=num(b.order);
+    await Store.set("staff/"+a._id,{...a,order:ob});await Store.set("staff/"+b._id,{...b,order:oa===ob?ob+dir:oa});
+  }catch(e){writeError(e);}}
+async function resortStaff(){
+  const all=S.staff.filter(x=>x.wardId===S.wardId).sort((a,b)=>num(b.exp)-num(a.exp)||num(b.tenure)-num(a.tenure));
+  try{for(let q=0;q<all.length;q++)await Store.set("staff/"+all[q]._id,{...all[q],order:q+1});toast("経験年数の長い順に並べ直しました。");}catch(e){writeError(e);}}
 
-/* 配置ルール */
-function renderRules(){
-  if(!S.rulesDirty||!S.rulesDraft)S.rulesDraft=clone(S.settings);
-  const r=S.rulesDraft,ns=sortedNurses();
-  const nm=id=>nurseById(id)?.name||"（削除済み）";
-  let h=`<section class="panel"><div class="stack"><h2>曜日ごとの配置人数</h2><p class="hint">休日運用（日曜${r.holidayAsSunday?"・祝日":""}）は日曜の列の人数で配置し、日勤リーダーは置きません。</p></div>
-   <div class="tbl-wrap"><table class="staffing"><thead><tr><th></th>${WD_ORDER.map(w=>`<th class="${w===0?"sun":""}" style="${w===0?"color:var(--sun)":w===6?"color:var(--sat)":""}">${WD[w]}</th>`).join("")}</tr></thead><tbody>
-    <tr><th class="rl">日勤</th>${WD_ORDER.map(w=>`<td><input type="number" min="0" max="40" id="sD${w}" aria-label="${WD[w]}曜 日勤人数" data-bind="staffing.${w}.D" value="${r.staffing[w].D}"></td>`).join("")}</tr>
-    <tr><th class="rl">夜勤</th>${WD_ORDER.map(w=>`<td><input type="number" min="0" max="20" id="sN${w}" aria-label="${WD[w]}曜 夜勤人数" data-bind="staffing.${w}.N" value="${r.staffing[w].N}"></td>`).join("")}</tr>
+/* 病棟プロファイル */
+function renderWards(){
+  const ws=S.wards;
+  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>病棟プロファイル</h2><p class="hint">病棟ごとに、看護師・ケアワーカーの配置人数と勤務のルールを登録します。上の病棟切り替えで、表示する病棟が変わります。</p></div></div>`;
+  if(ws.length){h+=`<div class="tbl-wrap"><table class="list"><thead><tr><th>順</th><th>病棟名</th><th>看護師</th><th>ケアワーカー</th><th></th></tr></thead><tbody>`;
+    ws.forEach((w,i)=>{const st=S.staff.filter(x=>x.wardId===w._id),nN=st.filter(x=>(x.role||"nurse")==="nurse").length,nC=st.length-nN,sel=w._id===S.wardId;
+      h+=`<tr class="${sel?"sel":""}"><td><div class="ord"><button data-action="ward-up" data-id="${esc(w._id)}" aria-label="${esc(w.name)}を上へ" ${i===0?"disabled":""}>↑</button><button data-action="ward-down" data-id="${esc(w._id)}" aria-label="${esc(w.name)}を下へ" ${i===ws.length-1?"disabled":""}>↓</button></div></td>
+       <td>${S.wardRename===w._id?`<span class="row"><label class="sr" for="wRename">病棟名</label><input type="text" id="wRename" maxlength="30" value="${esc(w.name)}"><button class="btn small primary" data-action="ward-rename-save">保存</button><button class="btn small" data-action="ward-rename-no">やめる</button></span>`:`<strong>${esc(w.name||"（名称未設定）")}</strong>${sel?` <span class="chip accent">表示中</span>`:""}`}</td>
+       <td class="num">${nN}名</td><td class="num">${nC}名</td>
+       <td><div class="row">${sel?"":`<button class="btn small" data-action="ward-select" data-id="${esc(w._id)}">表示する</button>`}<button class="btn small" data-action="ward-rename" data-id="${esc(w._id)}">名前を変更</button><button class="btn small" data-action="ward-copy" data-id="${esc(w._id)}">ルールを複製して新規</button>
+        ${S.wardDel===w._id?`<span class="hint">病棟と、その病棟のスタッフ・勤務表を削除します。</span><button class="btn danger small" data-action="ward-del-yes">削除する</button><button class="btn small" data-action="ward-del-no">やめる</button>`:`<button class="btn danger small" data-action="ward-del" data-id="${esc(w._id)}">削除</button>`}</div></td></tr>`;});
+    h+=`</tbody></table></div>`;}
+  h+=`<div class="row"><label class="sr" for="wNew">新しい病棟の名前</label><input type="text" id="wNew" maxlength="30" placeholder="例：2階病棟"><button class="btn ${ws.length?"":"primary"}" data-action="ward-add">病棟を追加</button>
+     ${ws.length?"":`<span class="hint">当院の4病棟を一つずつ追加してください。</span>`}</div></section>`;
+  if(wardDoc(S.wardId))h+=rulesHtml();
+  $("#main").innerHTML=h;}
+
+function rulesHtml(){
+  if(!S.rulesDirty||!S.rulesDraft||S.rulesDraft.wid!==S.wardId)S.rulesDraft={wid:S.wardId,data:prof()};
+  const r=S.rulesDraft.data,ns=staffOf(S.wardId),nm=id=>staffById(id)?.name||"（削除済み）";
+  const staffRow=(role,sh,label,max)=>`<tr class="${role==="care"?"care-row":""}"><th class="rl">${label}</th>${WD_ORDER.map(w=>`<td><input type="number" min="0" max="${max}" id="s${role}${sh}${w}" aria-label="${WD[w]}曜 ${label}" data-bind="staffing.${role}.${w}.${sh}" value="${r.staffing[role][w][sh]}"></td>`).join("")}</tr>`;
+  return `<section class="panel"><div class="stack"><h2>${esc(wardName(S.wardId))}の配置人数</h2><p class="hint">休日運用（日曜${r.holidayAsSunday?"・祝日":""}）は日曜の列の人数で配置します。「配置人数に数えない」スタッフ（育児時短など）はこの人数に含めません。</p></div>
+   <div class="tbl-wrap"><table class="staffing"><thead><tr><th></th>${WD_ORDER.map(w=>`<th style="${w===0?"color:var(--sun)":w===6?"color:var(--sat)":""}">${WD[w]}</th>`).join("")}</tr></thead><tbody>
+    ${staffRow("nurse","D","日勤 看護師",40)}${staffRow("nurse","N","夜勤 看護師",20)}${staffRow("care","D","日勤 ケアワーカー",20)}${staffRow("care","N","夜勤 ケアワーカー",10)}
     <tr><th class="rl">日勤リーダー</th>${WD_ORDER.map(w=>`<td><input type="checkbox" id="sL${w}" aria-label="${WD[w]}曜 日勤リーダーを置く" data-bind="leaderDays.${w}" ${r.leaderDays[w]?"checked":""}></td>`).join("")}</tr>
    </tbody></table></div>
    <div class="row" style="gap:18px"><label class="check"><input type="checkbox" id="rHol" data-bind="holidayAsSunday" ${r.holidayAsSunday?"checked":""}> 祝日も日曜と同じ休日運用にする</label>
     <label class="check"><input type="checkbox" id="rNL" data-bind="nightLeader" ${r.nightLeader?"checked":""}> 夜勤にもリーダー可の看護師を1名以上置く</label></div>
   </section>
-  <section class="panel"><div class="stack"><h2>新人とプリセプター</h2><p class="hint">新人が勤務する日は、同じ勤務帯に経験年数を満たす看護師（または担当プリセプター）を必ず置きます。担当はスタッフ画面で一人ずつ決められます。</p></div>
+  <section class="panel"><div class="stack"><h2>夜勤のきまり</h2><p class="hint">ここで「必ず」とした条件は、自動作成で破られることはありません。満たせない場合は、その日が人数不足として表示されます。</p></div>
+   <label class="f" for="rAke" style="max-width:520px">夜勤入り・明けと、明けの翌日<select id="rAke" data-bind="akeOff">
+     <option value="required" ${r.akeOff==="required"?"selected":""}>入り・明けは1セット。明けの翌日は必ず休み</option>
+     <option value="preferred" ${r.akeOff==="preferred"?"selected":""}>明けの翌日は、できるだけ休み</option>
+     <option value="none" ${r.akeOff==="none"?"selected":""}>明けの翌日の勤務を制限しない</option></select></label>
+   <div class="fgrid">
+    <label class="f" for="mN1">夜勤上限：日勤・夜勤<span class="row"><input type="number" id="mN1" min="0" max="20" data-bind="maxNights.normal" value="${r.maxNights.normal}"> 回/月</span></label>
+    <label class="f" for="mN2">夜勤上限：夜勤中心<span class="row"><input type="number" id="mN2" min="0" max="20" data-bind="maxNights.nightMain" value="${r.maxNights.nightMain}"> 回/月</span></label>
+    <label class="f" for="mN3">夜勤上限：夜勤専従<span class="row"><input type="number" id="mN3" min="0" max="20" data-bind="maxNights.nightOnly" value="${r.maxNights.nightOnly}"> 回/月</span></label>
+    <label class="f" for="rGap">夜勤入りどうしの間隔（できるだけ）<span class="row"><input type="number" id="rGap" min="0" max="10" data-bind="nightGap" value="${r.nightGap}"> 日以上</span></label>
+   </div>
+   <label class="check"><input type="checkbox" id="rHalf" data-bind="nightHalf" ${r.nightHalf?"checked":""}> 一人ひとりの夜勤が月の前半・後半に偏らないようにする（差を1回以内に）</label>
+   <p class="hint">夜勤上限は必ず守ります（スタッフごとの個別上限が優先）。夜勤中心・夜勤専従の方には上限近くまで、日勤・夜勤の方には均等になるよう割り当てます。</p>
+  </section>
+  <section class="panel"><h2>休みのきまり</h2>
+   <div class="fgrid">
+    <label class="f" for="rOff">公休数の既定値<span class="row"><input type="number" id="rOff" min="0" max="20" data-bind="offDays" value="${r.offDays}"> 日/月</span></label>
+    <label class="f" for="rDbl">2連休の回数（全員）<span class="row"><input type="number" id="rDbl" min="0" max="6" data-bind="doubleOff" value="${r.doubleOff}"> 回/月</span></label>
+    <label class="f" for="rHolMin">日曜・祝日の休み（全員）<span class="row"><input type="number" id="rHolMin" min="0" max="10" data-bind="holidayOffMin" value="${r.holidayOffMin}"> 日以上/月</span></label>
+    <label class="f" for="rCon">連続勤務の上限（明けを含む）<span class="row"><input type="number" id="rCon" min="2" max="10" data-bind="maxConsec" value="${r.maxConsec}"> 日</span></label>
+    <label class="f" for="rDl">希望の締切（前月の）<span class="row"><input type="number" id="rDl" min="1" max="28" data-bind="deadlineDay" value="${r.deadlineDay}"> 日</span></label>
+   </div>
+   <p class="hint">2連休は「休み」が2日続くことを1回と数えます（明けは含みません）。スタッフごとに回数を変えたいときは、スタッフ情報で個別に設定できます。</p>
+  </section>
+  <section class="panel"><div class="stack"><h2>新人とプリセプター</h2><p class="hint">新人が勤務する日は、同じ勤務帯に経験年数を満たす看護師（または担当プリセプター）を置きます。担当はスタッフ情報で一人ずつ決められます。</p></div>
    <label class="check"><input type="checkbox" id="pOn" data-bind="preceptor.enabled" ${r.preceptor.enabled?"checked":""}> プリセプター配置のルールを使う</label>
    <div class="fgrid">
     <label class="f" for="pExp">プリセプターに必要な経験年数<span class="row"><input type="number" id="pExp" min="1" max="20" data-bind="preceptor.minExp" value="${r.preceptor.minExp}"> 年以上</span></label>
@@ -673,58 +882,60 @@ function renderRules(){
     <label class="check"><input type="checkbox" id="pCN" data-bind="preceptor.countNew" ${r.preceptor.countNew?"checked":""}> 新人も配置人数に数える</label></div>
   </section>
   <section class="panel"><div class="stack"><h2>同時勤務NGの組み合わせ</h2><p class="hint">この二人は同じ日の同じ勤務帯（日勤どうし・夜勤どうし）に入れません。</p></div>
-   ${r.ngPairs.length?`<ul class="issues">${r.ngPairs.map((p,i)=>`<li><span>${esc(nm(p.a))} と ${esc(nm(p.b))}</span><button class="link" data-action="ng-del" data-i="${i}" style="margin-left:auto">外す</button></li>`).join("")}</ul>`:`<p class="hint">まだ登録はありません。</p>`}
+   ${r.ngPairs.length?`<ul class="issues">${r.ngPairs.map((q,i)=>`<li><span>${esc(nm(q.a))} と ${esc(nm(q.b))}</span><button class="link" data-action="ng-del" data-i="${i}" style="margin-left:auto">外す</button></li>`).join("")}</ul>`:`<p class="hint">まだ登録はありません。</p>`}
    <div class="row"><label class="sr" for="ngA">一人目</label><select id="ngA"><option value="">一人目を選ぶ</option>${ns.map(x=>`<option value="${esc(x._id)}" ${S.ngA===x._id?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
     <span>と</span><label class="sr" for="ngB">二人目</label><select id="ngB"><option value="">二人目を選ぶ</option>${ns.map(x=>`<option value="${esc(x._id)}" ${S.ngB===x._id?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
     <button class="btn small" data-action="ng-add">組み合わせを追加</button></div>
   </section>
-  <section class="panel"><h2>勤務のきまり</h2>
-   <div class="fgrid">
-    <label class="f" for="rWard">病棟名（見出しに表示）<input type="text" id="rWard" maxlength="30" data-bind="wardName" value="${esc(r.wardName)}" placeholder="例：4階東病棟"></label>
-    <label class="f" for="rOff">公休数の既定値<span class="row"><input type="number" id="rOff" min="0" max="20" data-bind="offDays" value="${r.offDays}"> 日/月</span></label>
-    <label class="f" for="rCon">連続勤務の上限（明けを含む）<span class="row"><input type="number" id="rCon" min="2" max="10" data-bind="maxConsec" value="${r.maxConsec}"> 日</span></label>
-    <label class="f" for="rDl">希望の締切（前月の）<span class="row"><input type="number" id="rDl" min="1" max="28" data-bind="deadlineDay" value="${r.deadlineDay}"> 日</span></label>
-    <label class="f" for="mN1">夜勤上限：日勤・夜勤<span class="row"><input type="number" id="mN1" min="0" max="20" data-bind="maxNights.normal" value="${r.maxNights.normal}"> 回/月</span></label>
-    <label class="f" for="mN2">夜勤上限：夜勤中心<span class="row"><input type="number" id="mN2" min="0" max="20" data-bind="maxNights.nightMain" value="${r.maxNights.nightMain}"> 回/月</span></label>
-    <label class="f" for="mN3">夜勤上限：夜勤専従<span class="row"><input type="number" id="mN3" min="0" max="20" data-bind="maxNights.nightOnly" value="${r.maxNights.nightOnly}"> 回/月</span></label>
-   </div>
-   <label class="check"><input type="checkbox" id="rAke" data-bind="offAfterAke" ${r.offAfterAke?"checked":""}> 夜勤明けの翌日は休みにする</label>
-   <p class="hint">二交代（夜勤の翌日が「明け」）を前提にしています。夜勤中心・夜勤専従の看護師には上限近くまで夜勤を割り当て、日勤・夜勤の看護師には夜勤が均等になるよう配分します。</p>
-  </section>`;
-  $("#main").innerHTML=h;}
+  <section class="panel"><h2>病棟のメモ</h2>
+   <label class="f" for="rMemo">この病棟の運用で気をつけること（自動作成には使いません）<textarea id="rMemo" maxlength="600" data-bind="memo" placeholder="例：第2・第4水曜は病棟会のため日勤を厚めに">${esc(r.memo)}</textarea></label>
+  </section>`;}
 function setPath(o,p,v){const ks=p.split(".");let t=o;for(let i=0;i<ks.length-1;i++)t=t[ks[i]];t[ks[ks.length-1]]=v;}
 function renderSavebar(){
-  const show=S.tab==="rules"&&S.rulesDirty;
-  $("#savebarHost").innerHTML=show?`<div class="savebar band"><div class="inner"><span>配置ルールに未保存の変更があります。</span><div class="row"><button class="btn" data-action="rules-reset">元に戻す</button><button class="btn primary" data-action="rules-save">保存する</button></div></div></div>`:"";}
+  const show=S.tab==="wards"&&S.rulesDirty;
+  $("#savebarHost").innerHTML=show?`<div class="savebar band"><div class="inner"><span>${esc(wardName(S.rulesDraft.wid))}のルールに未保存の変更があります。</span><div class="row"><button class="btn" data-action="rules-reset">元に戻す</button><button class="btn primary" data-action="rules-save">保存する</button></div></div></div>`:"";}
+async function addWard(name,fromId){
+  const base=fromId?{...mergeProfile(wardDoc(fromId)),ngPairs:[]}:clone(PD);
+  const id=newId("w");base.name=name;base.order=S.wards.reduce((a,w)=>Math.max(a,num(w.order,0)),0)+1;
+  try{await Store.set("wards/"+id,base);S.wardId=id;saveLocalPref();toast(`${name}を登録しました。${fromId?"ルールを複製しています。":"配置人数とルールを設定してください。"}`);render();}catch(e){writeError(e);}}
+async function moveWard(id,dir){
+  const ws=S.wards,i=ws.findIndex(w=>w._id===id),j=i+dir;if(j<0||j>=ws.length)return;
+  try{for(let q=0;q<ws.length;q++){const o=q===i?j+1:q===j?i+1:q+1;if(num(ws[q].order)!==o)await Store.set("wards/"+ws[q]._id,{...ws[q],order:o});}}catch(e){writeError(e);}}
+async function deleteWard(id){
+  try{for(const x of S.staff.filter(x=>x.wardId===id))await Store.del("staff/"+x._id);
+    for(const k of Object.keys(S.schedules).filter(k=>k.startsWith(id+"_")))await Store.del("schedules/"+k);
+    await Store.del("wards/"+id);S.wardDel=null;toast("病棟を削除しました。");}catch(e){writeError(e);}}
 
 /* ---------- 勤務表の作成・編集 ---------- */
 const saveQ={};
-function commitSched(m,doc){S.override[m]=doc;render();queueSched(m);}
-async function queueSched(m){const q=saveQ[m]||(saveQ[m]={busy:false,again:false});if(q.busy){q.again=true;return;}q.busy=true;
-  try{do{q.again=false;const d={...S.override[m]};delete d._id;await Store.set("schedules/"+m,d);}while(q.again);delete S.override[m];}
-  catch(e){writeError(e);delete S.override[m];renderSoft();}
+function commitSched(key,doc){S.override[key]=doc;render();queueSched(key);}
+async function queueSched(key){const q=saveQ[key]||(saveQ[key]={busy:false,again:false});if(q.busy){q.again=true;return;}q.busy=true;
+  try{do{q.again=false;await Store.set("schedules/"+key,S.override[key]);}while(q.again);delete S.override[key];}
+  catch(e){writeError(e);delete S.override[key];renderSoft();}
   q.busy=false;}
 
 async function generate(){
-  const m=S.month;if(S.gen)return;
-  const off=num(S.offDraft[m]??schedOf(m)?.offDays??S.settings.offDays,9);
-  const M=buildModel(m,off);if(!M.n){toast("先にスタッフを登録してください。");return;}
+  const wid=S.wardId,m=S.month,key=schedKey(wid,m);if(S.gen)return;
+  const off=num(S.offDraft[key]??schedOf(wid,m)?.offDays??prof().offDays,9);
+  const M=buildModel(wid,m,off);if(!M.n){toast("先にスタッフを登録してください。");return;}
   S.gen=true;S.genP=0;S.confirmGen=false;render();
   try{
     const res=await anneal(M,p=>{S.genP=p;updateProgress();});
     const{leaders,nightLeaders}=assignLeaders(M,res.g);
-    const rows={};M.nurses.forEach((x,i)=>{let s="";for(let d=0;d<M.L;d++)s+=CH[res.g[i*M.L+d]];rows[x._id]=s;});
-    const was=schedOf(m)?.status==="published";
+    const rows={};M.staff.forEach((x,i)=>{let s="";for(let d=0;d<M.L;d++)s+=CH[res.g[i*M.L+d]];rows[x._id]=s;});
+    const was=schedOf(wid,m)?.status==="published";
     S.gen=false;
-    commitSched(m,{month:m,rows,leaders,nightLeaders,offDays:off,status:"draft",generatedAt:Date.now(),updatedAt:Date.now(),edited:false});
-    toast(was?"作り直しました。公開を止めて下書きに戻しています。":"勤務表を作成しました。下の「確認が必要な点」を見て、必要ならマスを直してください。");
+    commitSched(key,{wardId:wid,month:m,rows,leaders,nightLeaders,offDays:off,status:"draft",generatedAt:Date.now(),updatedAt:Date.now(),edited:false});
+    toast(was?"作り直しました。公開を止めて下書きに戻しています。":"勤務表を作成しました。「確認が必要な点」を見て、必要ならマスを直してください。");
   }catch(e){S.gen=false;render();toast("作成中に問題が起きました。もう一度お試しください。");}}
 
 function openPop(btn){
-  const nid=btn.dataset.nid,d=Number(btn.dataset.d),x=nurseById(nid),pop=$("#popover");
-  S.pop={m:S.month,nid,d};
-  const opts=[["D","日","日勤","c-D"],["DL","日<sup>L</sup>","日勤リーダー","c-D"],["N","夜","夜勤（翌日を明けに）","c-N"]];
-  if(S.settings.nightLeader)opts.push(["NL","夜<sup>L</sup>","夜勤リーダー","c-N"]);
+  const sid=btn.dataset.sid,d=Number(btn.dataset.d),x=staffById(sid),pop=$("#popover");
+  S.pop={key:schedKey(S.wardId,S.month),sid,d};
+  const opts=[["D","日","日勤","c-D"]];
+  if(x&&x.role!=="care"&&x.leader&&!x.isNew)opts.push(["DL","日<sup>L</sup>","日勤リーダー","c-D"]);
+  opts.push(["N","夜","夜勤入り（翌日を明けに）","c-N"]);
+  if(prof().nightLeader&&x&&x.role!=="care"&&x.leader)opts.push(["NL","夜<sup>L</sup>","夜勤リーダー","c-N"]);
   opts.push(["A","明","明け","c-A"],["X","休","休み","c-X"]);
   pop.innerHTML=`<div class="ph">${esc(x?.name||"")}・${d+1}日</div>`+opts.map(o=>`<button data-action="pop" data-v="${o[0]}"><span class="c ${o[3]}">${o[1]}</span>${o[2]}</button>`).join("");
   pop.hidden=false;
@@ -732,124 +943,158 @@ function openPop(btn){
   let left=r.left+window.scrollX,top=r.bottom+window.scrollY+4;
   left=Math.max(8+window.scrollX,Math.min(left,window.scrollX+document.documentElement.clientWidth-w-8));
   if(r.bottom+hgt+8>window.innerHeight)top=r.top+window.scrollY-hgt-4;
-  pop.style.left=left+"px";pop.style.top=top+"px";
-  pop.querySelector("button").focus();}
+  pop.style.left=left+"px";pop.style.top=top+"px";pop.querySelector("button").focus();}
 function closePop(){const p=$("#popover");if(!p.hidden){p.hidden=true;S.pop=null;}}
 function applyCell(v){
-  const{m,nid,d}=S.pop;closePop();const src=schedOf(m);if(!src)return;
+  const{key,sid,d}=S.pop;closePop();const src=S.override[key]||S.schedules[key];if(!src)return;
   const doc=clone(src);delete doc._id;doc.leaders=doc.leaders||{};doc.nightLeaders=doc.nightLeaders||{};
-  const L=monthInfo(m).L,r=(doc.rows[nid]||"").padEnd(L,"X").slice(0,L).split(""),was=r[d],k=String(d+1);
+  const L=monthInfo(doc.month).L,r=(doc.rows[sid]||"").padEnd(L,"X").slice(0,L).split(""),was=r[d],k=String(d+1),akeReq=prof().akeOff==="required";
   const code=v==="DL"?"D":v==="NL"?"N":v;r[d]=code;
-  if(v==="DL")doc.leaders[k]=nid;else if(doc.leaders[k]===nid&&code!=="D")delete doc.leaders[k];
-  if(v==="NL")doc.nightLeaders[k]=nid;else if(doc.nightLeaders[k]===nid&&code!=="N")delete doc.nightLeaders[k];
-  if(code==="N"&&d+1<L&&(r[d+1]==="X"||r[d+1]==="D")){r[d+1]="A";if(doc.leaders[String(d+2)]===nid)delete doc.leaders[String(d+2)];}
+  if(v==="DL")doc.leaders[k]=sid;else if(doc.leaders[k]===sid&&code!=="D")delete doc.leaders[k];
+  if(v==="NL")doc.nightLeaders[k]=sid;else if(doc.nightLeaders[k]===sid&&code!=="N")delete doc.nightLeaders[k];
+  if(code==="N"){if(d+1<L){r[d+1]="A";if(doc.leaders[String(d+2)]===sid)delete doc.leaders[String(d+2)];}
+    if(akeReq&&d+2<L&&r[d+2]==="D"){r[d+2]="X";if(doc.leaders[String(d+3)]===sid)delete doc.leaders[String(d+3)];}}
   if(was==="N"&&code!=="N"&&d+1<L&&r[d+1]==="A")r[d+1]="X";
-  doc.rows[nid]=r.join("");doc.edited=true;doc.updatedAt=Date.now();
-  commitSched(m,doc);}
+  doc.rows[sid]=r.join("");doc.edited=true;doc.updatedAt=Date.now();
+  commitSched(key,doc);}
 
 async function exportCsv(){
-  const m=S.month,doc=schedOf(m);if(!doc)return;const A=analyze(m,doc),{M,g,dayStats,nurseStats}=A,lead=doc.leaders||{},nl=doc.nightLeaders||{};
+  const wid=S.wardId,m=S.month,doc=schedOf(wid,m);if(!doc)return;const A=analyze(wid,m,doc),{M,g,dayStats,stats}=A,lead=doc.leaders||{},nl=doc.nightLeaders||{};
   const q=s=>`"${String(s).replace(/"/g,'""')}"`;
-  const lines=[[q("氏名"),...M.mi.days.map(d=>q(`${d.d}(${WD[d.wd]})`)),q("日勤"),q("夜勤"),q("休み")].join(",")];
-  M.nurses.forEach((x,i)=>{const cells=[];for(let d=0;d<M.L;d++){const v=g[i*M.L+d];cells.push(q(LABEL[v]+((v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"L":"")));}
-    lines.push([q(x.name),...cells,nurseStats[i].D,nurseStats[i].N,nurseStats[i].off].join(","));});
-  lines.push([q("日勤人数"),...dayStats.map(s=>s.cD)].join(","));
-  lines.push([q("夜勤人数"),...dayStats.map(s=>s.cN)].join(","));
-  const csv="﻿"+lines.join("\r\n");const fn=`勤務表_${m}.csv`;
+  const lines=[[q("職種"),q("氏名"),...M.mi.days.map(d=>q(`${d.d}(${WD[d.wd]})`)),q("日勤"),q("夜勤"),q("休み"),q("2連休"),q("日祝休")].join(",")];
+  M.staff.forEach((x,i)=>{const cells=[];for(let d=0;d<M.L;d++){const v=g[i*M.L+d];cells.push(q(LABEL[v]+((v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"L":"")));}
+    const s=stats[i];lines.push([q(ROLES[x.role||"nurse"]),q(x.name),...cells,s.D,s.N,s.off,s.pairs,s.hol].join(","));});
+  lines.push([q(""),q("日勤 看護師"),...dayStats.map(s=>s.cD[0])].join(","));
+  lines.push([q(""),q("夜勤 看護師"),...dayStats.map(s=>s.cN[0])].join(","));
+  if(M.role.includes(1)){lines.push([q(""),q("日勤 ケアワーカー"),...dayStats.map(s=>s.cD[1])].join(","));lines.push([q(""),q("夜勤 ケアワーカー"),...dayStats.map(s=>s.cN[1])].join(","));}
+  const csv="﻿"+lines.join("\r\n"),fn=`勤務表_${wardName(wid)}_${m}.csv`;
   const dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(()=>null):null;
   if(!dl){toast("この表示ではファイルを保存できません。claude.ai 上で開いてください。");return;}
   try{await dl.save({filename:fn,data:csv});}catch(e){if(e&&e.code!=="declined")toast("CSVを保存できませんでした。");}}
 
 /* ---------- 例のスタッフ ---------- */
+// [氏名, 入職, 経験, リーダー, 勤務タイプ, 追加の設定]
 const SAMPLE=[["高橋",18,24,1,"normal"],["田中",12,15,1,"normal"],["伊藤",10,12,1,"nightMain"],["渡辺",9,11,1,"normal"],["山本",8,9,1,"normal"],["中村",7,8,1,"normal"],
- ["小林",6,7,1,"dayOnly","育児短時間勤務"],["加藤",3,10,1,"normal","中途入職"],["吉田",5,5,0,"normal"],["山田",5,6,0,"nightOnly"],["佐々木",4,4,0,"normal"],["山口",4,4,0,"normal"],
- ["松本",3,3,0,"normal"],["井上",3,3,0,"normal"],["木村",3,5,0,"nightMain"],["林",2,2,0,"normal"],["斎藤",2,2,0,"normal"],["清水",2,2,0,"dayOnly"],
- ["山崎",1,1,0,"normal"],["森",1,1,0,"normal"],["池田",1,1,0,"normal"],["橋本",1,3,0,"normal"],["阿部",0,0,0,"normal",null,12],["石川",0,0,0,"normal",null,13]];
+ ["小林",6,7,1,"dayOnly",{excludeFromCount:true,weekly:{0:"off",6:"off"},memo:"育児短時間勤務"}],["加藤",3,10,1,"normal",{memo:"中途入職"}],["吉田",5,5,0,"normal"],
+ ["山田",5,6,0,"nightOnly",{onlyDesignatedNights:true}],["佐々木",4,4,0,"normal"],["山口",4,4,0,"normal"],["松本",3,3,0,"normal"],["井上",3,3,0,"normal"],["木村",3,5,0,"nightMain",{maxNights:6}],
+ ["林",2,2,0,"normal"],["斎藤",2,2,0,"normal"],["清水",2,2,0,"dayOnly"],["山崎",1,1,0,"normal"],["森",1,1,0,"normal"],["阿部",0,0,0,"normal",{isNew:true,prec:12}],["石川",0,0,0,"normal",{isNew:true,prec:13}],
+ ["岡田",8,8,0,"nightMain",{role:"care"}],["前田",5,5,0,"nightMain",{role:"care"}],["西村",4,4,0,"nightOnly",{role:"care"}],["原",3,3,0,"nightMain",{role:"care"}],["藤井",3,3,0,"dayOnly",{role:"care"}]];
 async function seed(){
-  const ids=SAMPLE.map((_,i)=>"ex"+pad(i+1));
+  const wid=S.wardId,w=wardDoc(wid);if(!w)return;
+  const ids=SAMPLE.map(()=>newId("s"));
   try{
-    for(let i=0;i<SAMPLE.length;i++){const[n,t,e,l,ty,memo,pi]=SAMPLE[i];
-      await Store.set("nurses/"+ids[i],{name:"例）"+n,tenure:t,exp:e,leader:!!l,nightType:ty,maxNights:"",isNew:pi!=null,preceptorId:pi!=null?ids[pi]:"",memo:memo||"",sample:true});}
-    const m=S.month,req=[[1,{5:{D:2,N:2},6:{D:2,N:2}},"5・6日は家族の行事のため休みたいです"],[11,{12:{N:2},13:{D:1}},""],[19,{20:{D:2,N:2},21:{D:2,N:2},22:{D:2,N:2}},"20〜22日は学会に参加します"],[16,{3:{D:1,N:1},17:{N:1}},""],[22,{15:{D:2,N:2}},"15日は新人研修のため病棟勤務不可"]];
-    for(const[i,cells,note]of req)await Store.set("requests/mgr-"+ids[i],{nurseId:ids[i],sample:true,months:{[m]:{cells,note,submitted:true,updatedAt:Date.now(),by:"manager"}}});
-    toast("例のスタッフ24名と、5名分の希望を登録しました。");
+    for(let i=0;i<SAMPLE.length;i++){const[n,t,e,l,ty,o={}]=SAMPLE[i];
+      await Store.set("staff/"+ids[i],{wardId:wid,role:o.role||"nurse",name:"例）"+n,tenure:t,exp:e,leader:!!l,nightType:ty,maxNights:o.maxNights??"",doubleOff:"",
+        isNew:!!o.isNew,preceptorId:o.prec!=null?ids[o.prec]:"",excludeFromCount:!!o.excludeFromCount,onlyDesignatedNights:!!o.onlyDesignatedNights,weekly:o.weekly||{},memo:o.memo||"",order:i+1,sample:true});}
+    const p=mergeProfile(w);
+    if(!p.staffing.care.some(x=>x.D||x.N)){p.staffing.care=p.staffing.care.map(()=>({D:1,N:1}));await Store.set("wards/"+wid,{...w,staffing:p.staffing});}
+    const m=S.month,mi=monthInfo(m),weds=mi.days.filter(d=>d.wd===3).map(d=>d.d);
+    const nightOnly={};[1,4,8,11,15,18,22,25].filter(d=>d<=mi.L-2).forEach(d=>nightOnly[d]={fix:"N"});
+    const req=[[1,{5:{off:1},6:{off:1}},"5・6日は家族の行事のため休みたいです"],[3,{[weds[1]]:{fix:"D",label:"感染対策委員会"},[weds[3]||weds[2]]:{fix:"D",label:"感染対策委員会"}},""],
+      [9,nightOnly,"夜勤専従：指定日のみ勤務"],[11,{12:{N:2},13:{D:1}},""],[19,{20:{off:1},21:{off:1},22:{off:1}},"20〜22日は学会に参加します"],
+      [16,{3:{D:1,N:1},17:{N:1}},""],[20,{15:{fix:"D",label:"新人研修"}},""]];
+    for(const[i,days,note]of req)await Store.set("requests/mgr-"+ids[i],{wardId:wid,staffId:ids[i],sample:true,months:{[m]:{days,note,submitted:true,updatedAt:Date.now(),by:"manager"}}});
+    toast("例のスタッフ27名（看護師22・ケアワーカー5）と、7名分の希望・指定を登録しました。");
   }catch(e){writeError(e);}}
 async function unseed(){
-  try{for(const x of S.nurses.filter(x=>x.sample))await Store.del("nurses/"+x._id);
-    for(const[id,d]of Object.entries(S.requests))if(d.sample)await Store.del("requests/"+id);
+  try{for(const x of S.staff.filter(x=>x.sample&&x.wardId===S.wardId))await Store.del("staff/"+x._id);
+    for(const[id,d]of Object.entries(S.requests))if(d.sample&&d.wardId===S.wardId)await Store.del("requests/"+id);
     S.staffDel=null;toast("例のスタッフを削除しました。");}catch(e){writeError(e);}}
 
 /* ---------- 操作 ---------- */
 document.addEventListener("click",ev=>{
   const pop=$("#popover");if(!pop.hidden&&!pop.contains(ev.target)&&!ev.target.closest('[data-action="cell"]'))closePop();
-  const b=ev.target.closest("[data-action]");if(!b)return;const a=b.dataset.action;
+  const b=ev.target.closest("[data-action]");if(!b)return;const a=b.dataset.action,id=b.dataset.id;
   switch(a){
     case"tab":S.tab=b.dataset.tab;try{history.replaceState(null,"","#"+S.tab);}catch(e){location.hash=S.tab;}render();window.scrollTo(0,0);break;
     case"month-prev":setMonth(addMonth(S.month,-1));break;
     case"month-next":setMonth(addMonth(S.month,1));break;
-    case"generate":if(schedOf(S.month)){S.confirmGen=true;render();}else generate();break;
+    case"generate":if(schedOf(S.wardId,S.month)){S.confirmGen=true;render();}else generate();break;
     case"generate-yes":generate();break;
     case"generate-no":S.confirmGen=false;render();break;
-    case"publish":{const d=clone(schedOf(S.month));delete d._id;const pub=d.status!=="published";d.status=pub?"published":"draft";commitSched(S.month,d);toast(pub?"スタッフに公開しました。":"非公開に戻しました。");break;}
+    case"publish":{const key=schedKey(S.wardId,S.month),d=clone(schedOf(S.wardId,S.month));delete d._id;const pub=d.status!=="published";d.status=pub?"published":"draft";commitSched(key,d);toast(pub?"スタッフに公開しました。":"非公開に戻しました。");break;}
     case"csv":exportCsv();break;
-    case"cell":if(S.pop&&S.pop.nid===b.dataset.nid&&S.pop.d===Number(b.dataset.d))closePop();else openPop(b);break;
+    case"cell":if(S.pop&&S.pop.sid===b.dataset.sid&&S.pop.d===Number(b.dataset.d))closePop();else openPop(b);break;
     case"pop":applyCell(b.dataset.v);break;
-    case"req-mode":S.reqMode=Number(b.dataset.v);document.querySelectorAll('[data-action="req-mode"]').forEach(x=>x.setAttribute("aria-pressed",String(Number(x.dataset.v)===S.reqMode)));break;
-    case"req-slot":{const d=b.dataset.d,s=b.dataset.s,cur=S.reqDraft.cells[d]?.[s]||0;setSlot(d,s,cur===S.reqMode?0:S.reqMode);refreshCal();break;}
-    case"req-day":{const d=b.dataset.d,c=S.reqDraft.cells[d]||{},both=(c.D||0)===S.reqMode&&(c.N||0)===S.reqMode,v=both?0:S.reqMode;setSlot(d,"D",v);setSlot(d,"N",v);refreshCal();break;}
+    case"req-mode":S.reqMode=b.dataset.v;document.querySelectorAll('[data-action="req-mode"]').forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.reqMode)));$("#reqModeHelp").innerHTML=modeHelp();break;
+    case"req-day":applyReq(b.dataset.d,null);refreshCal();break;
+    case"req-slot":applyReq(b.dataset.d,["x","tri"].includes(S.reqMode)?b.dataset.s:null);refreshCal();break;
     case"req-save":saveRequest(b.dataset.submit==="1");break;
-    case"staff-new":S.staffEdit={nightType:"normal",tenure:0,exp:0};S.staffDel=null;render();$("#fName")?.focus();break;
-    case"staff-edit":S.staffEdit=clone(nurseById(b.dataset.id));S.staffDel=null;render();$("#staffEditor").scrollIntoView({block:"nearest"});$("#fName")?.focus();break;
+    case"staff-new":S.staffEdit={role:"nurse",nightType:"normal",tenure:0,exp:0,weekly:{}};S.staffDel=null;render();$("#fName")?.focus();break;
+    case"staff-edit":S.staffEdit=clone(staffById(id));S.staffDel=null;render();$("#staffEditor").scrollIntoView({block:"nearest"});$("#fName")?.focus();break;
     case"staff-cancel":S.staffEdit=null;S.staffDel=null;render();break;
     case"staff-del":S.staffDel=S.staffEdit._id;render();break;
     case"staff-del-no":S.staffDel=null;render();break;
-    case"staff-del-yes":{const id=S.staffEdit._id,name=S.staffEdit.name;Store.del("nurses/"+id).then(()=>{S.staffEdit=null;S.staffDel=null;toast(`${name}さんを削除しました。`);render();}).catch(writeError);break;}
+    case"staff-del-yes":{const sid=S.staffEdit._id,name=S.staffEdit.name;Store.del("staff/"+sid).then(()=>{S.staffEdit=null;S.staffDel=null;toast(`${name}さんを削除しました。`);render();}).catch(writeError);break;}
+    case"staff-up":moveStaff(id,-1);break;
+    case"staff-down":moveStaff(id,1);break;
+    case"staff-resort":resortStaff();break;
     case"seed":seed();break;
     case"unseed":S.staffDel="__sample";render();break;
     case"unseed-no":S.staffDel=null;render();break;
     case"unseed-yes":unseed();break;
-    case"ng-add":{const A=$("#ngA").value,B=$("#ngB").value;if(!A||!B||A===B){toast("違う二人を選んでください。");break;}
-      if(S.rulesDraft.ngPairs.some(p=>(p.a===A&&p.b===B)||(p.a===B&&p.b===A))){toast("その組み合わせは登録済みです。");break;}
-      S.rulesDraft.ngPairs.push({a:A,b:B});S.rulesDirty=true;S.ngA="";S.ngB="";render();break;}
-    case"ng-del":S.rulesDraft.ngPairs.splice(Number(b.dataset.i),1);S.rulesDirty=true;render();break;
+    case"ward-add":{const nm=$("#wNew").value.trim();if(!nm){toast("病棟名を入力してください。");$("#wNew").focus();break;}addWard(nm,null);break;}
+    case"ward-copy":{const src=wardDoc(id);addWard((src?.name||"病棟")+"（複製）",id);break;}
+    case"ward-select":setWard(id);break;
+    case"ward-up":moveWard(id,-1);break;
+    case"ward-down":moveWard(id,1);break;
+    case"ward-rename":S.wardRename=id;render();$("#wRename")?.focus();break;
+    case"ward-rename-no":S.wardRename=null;render();break;
+    case"ward-rename-save":{const w=wardDoc(S.wardRename),nm=$("#wRename").value.trim();if(!w||!nm)break;Store.set("wards/"+w._id,{...w,name:nm}).then(()=>{S.wardRename=null;render();}).catch(writeError);break;}
+    case"ward-del":S.wardDel=id;render();break;
+    case"ward-del-no":S.wardDel=null;render();break;
+    case"ward-del-yes":deleteWard(S.wardDel);break;
+    case"ng-add":{const A=$("#ngA").value,B=$("#ngB").value,ng=S.rulesDraft.data.ngPairs;if(!A||!B||A===B){toast("違う二人を選んでください。");break;}
+      if(ng.some(p=>(p.a===A&&p.b===B)||(p.a===B&&p.b===A))){toast("その組み合わせは登録済みです。");break;}
+      ng.push({a:A,b:B});S.rulesDirty=true;S.ngA="";S.ngB="";render();break;}
+    case"ng-del":S.rulesDraft.data.ngPairs.splice(Number(b.dataset.i),1);S.rulesDirty=true;render();break;
     case"rules-reset":S.rulesDirty=false;S.rulesDraft=null;render();break;
-    case"rules-save":{const d=clone(S.rulesDraft);Store.set("config/settings",d).then(()=>{S.rulesDirty=false;toast("配置ルールを保存しました。");render();}).catch(writeError);break;}
+    case"rules-save":{const wid=S.rulesDraft.wid,w=wardDoc(wid);if(!w)break;const d={...clone(S.rulesDraft.data),name:w.name,order:w.order};
+      Store.set("wards/"+wid,d).then(()=>{S.rulesDirty=false;toast("病棟プロファイルを保存しました。");render();}).catch(writeError);break;}
   }});
-function refreshCal(){const el=$("#reqCal");if(el)el.innerHTML=calHtml(S.month);const st=$("#reqStatus");if(st)st.textContent=reqStatus(requestFor(S.reqDraft.nid,S.month));}
-function setMonth(m){if(!/^\d{4}-\d{2}$/.test(m))return;S.month=m;S.confirmGen=false;closePop();try{localStorage.setItem(LKEY+"-month",m);}catch(e){}render();}
+function refreshCal(){const el=$("#reqCal");if(el)el.innerHTML=calHtml(S.month,staffById(S.reqDraft.sid));const st=$("#reqStatus");if(st)st.textContent=reqStatus(requestFor(S.reqDraft.sid,S.month));}
+function saveLocalPref(){try{localStorage.setItem(LKEY+"-pref",JSON.stringify({month:S.month,wardId:S.wardId}));}catch(e){}}
+function setMonth(m){if(!/^\d{4}-\d{2}$/.test(m))return;S.month=m;S.confirmGen=false;closePop();saveLocalPref();render();}
+function setWard(id){if(S.rulesDirty&&S.rulesDraft?.wid!==id){S.rulesDirty=false;S.rulesDraft=null;toast("保存していないルールの変更を取り消しました。");}
+  S.wardId=id;S.reqSel=null;S.reqDraft=null;S.staffEdit=null;S.confirmGen=false;closePop();saveLocalPref();render();}
 
 document.addEventListener("input",ev=>{
   const t=ev.target;
-  if(t.dataset.bind&&S.rulesDraft){const v=t.type==="checkbox"?t.checked:t.type==="number"?num(t.value,0):t.value;setPath(S.rulesDraft,t.dataset.bind,v);if(!S.rulesDirty){S.rulesDirty=true;renderSavebar();}}
-  else if(t.id==="offDaysInput")S.offDraft[S.month]=t.value;
+  if(t.dataset.bind&&S.rulesDraft){const v=t.type==="checkbox"?t.checked:t.type==="number"?num(t.value,0):t.value;setPath(S.rulesDraft.data,t.dataset.bind,v);if(!S.rulesDirty){S.rulesDirty=true;renderSavebar();}}
+  else if(t.id==="offDaysInput")S.offDraft[schedKey(S.wardId,S.month)]=t.value;
   else if(t.id==="reqNote"&&S.reqDraft){S.reqDraft.note=t.value;S.reqDraft.dirty=true;}
-  else if(t.id==="fExp"&&!S.staffEdit?._id&&num(t.value,0)<1)$("#fNew").checked=true;});
+  else if(t.id==="reqLabel")S.reqLabel=t.value;
+  else if(t.id==="fExp"&&!S.staffEdit?._id&&num(t.value,0)<1&&$("#fNew"))$("#fNew").checked=true;});
 document.addEventListener("change",ev=>{
   const t=ev.target;
   if(t.id==="monthInput")setMonth(t.value);
-  else if(t.id==="reqNurse"){S.reqSel=t.value||null;S.reqDraft=null;render();}
-  else if(t.id==="ngA")S.ngA=t.value;else if(t.id==="ngB")S.ngB=t.value;});
+  else if(t.id==="wardSel")setWard(t.value);
+  else if(t.id==="reqStaff"){S.reqSel=t.value||null;S.reqDraft=null;render();}
+  else if(t.id==="ngA")S.ngA=t.value;else if(t.id==="ngB")S.ngB=t.value;
+  else if(t.id==="fRole"){const care=t.value==="care";["fLeaderWrap","fNewWrap","fPrecWrap"].forEach(i=>{const el=document.getElementById(i);if(el)el.hidden=care;});}});
 document.addEventListener("submit",ev=>{if(ev.target.id==="staffForm"){ev.preventDefault();saveStaff();}});
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape")closePop();});
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(tabsFor().some(t=>t[0]===h)){S.tab=h;render();}});
 window.addEventListener("beforeunload",ev=>{if(S.reqDraft?.dirty||S.rulesDirty){ev.preventDefault();ev.returnValue="";}});
 
 let toastT=0;
-function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove("show"),3800);}
+function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove("show"),4000);}
 
 /* ---------- 起動 ---------- */
 async function boot(){
-  try{const m=localStorage.getItem(LKEY+"-month");if(m&&/^\d{4}-\d{2}$/.test(m))S.month=m;}catch(e){}
-  const h=location.hash.slice(1);if(["schedule","requests","staff","rules"].includes(h))S.tab=h;
+  try{const p=JSON.parse(localStorage.getItem(LKEY+"-pref")||"{}");if(p.month&&/^\d{4}-\d{2}$/.test(p.month))S.month=p.month;if(p.wardId)S.wardId=p.wardId;}catch(e){}
+  const h=location.hash.slice(1);if(["schedule","requests","staff","wards"].includes(h))S.tab=h;
   render();
   let db=null,user=null;const c=window.claude;
   if(c&&typeof c.use==="function"){try{[db,user]=await Promise.all([c.use("db"),c.use("user")]);}catch(e){}}
   if(db){Store.db=db;S.mode="shared";}else{Store.initLocal();S.mode="local";}
   if(user){try{S.isAdmin=await user.canEdit();S.uid=await user.id();}catch(e){}}else S.isAdmin=true;
-  Store.sub("config",docs=>{S.settings=mergeSettings(docs.find(x=>x._id==="settings"));renderSoft();});
-  Store.sub("nurses",docs=>{S.nurses=docs;renderSoft();});
+  Store.sub("wards",docs=>{S.wards=docs.sort((a,b)=>num(a.order)-num(b.order));renderSoft();});
+  Store.sub("staff",docs=>{S.staff=docs;renderSoft();});
   Store.sub("schedules",docs=>{S.schedules=Object.fromEntries(docs.map(d=>[d._id,d]));renderSoft();});
-  Store.sub("requests",docs=>{S.requests=Object.fromEntries(docs.map(d=>[d._id,d]));renderSoft();});
+  Store.sub("requests",docs=>{S.requests=Object.fromEntries(docs.map(d=>[d._id,d]));
+    if(!S.isAdmin&&S.uid&&S.requests[S.uid]?.wardId&&!S.wardPicked){S.wardPicked=true;if(wardDoc(S.requests[S.uid].wardId))S.wardId=S.requests[S.uid].wardId;}
+    renderSoft();});
   render();}
 boot();
 })();
