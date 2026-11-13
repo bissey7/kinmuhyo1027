@@ -266,7 +266,7 @@ const PD={ // 病棟プロファイルの既定値（staffing の配列の添字
   preceptor:{enabled:true,minExp:3,mode:"any",newNoNight:false,countNew:true},
   ngPairs:[],offDays:9,maxConsec:5,akeOff:"required",nightGap:4,nightHalf:true,
   maxNights:{normal:5,nightMain:8,nightOnly:10},
-  doubleOff:2,holidayOffMin:2,deadlineDay:20,memo:""
+  doubleOff:2,holidayOffMin:2,deadlineDay:20,requestMode:"form",memo:""
 };
 const LKEY="ward-roster-local-v2";
 
@@ -569,11 +569,11 @@ function analyze(wid,m,doc){
 
 /* ---------- 描画 ---------- */
 let pendingRender=false;
-function editingNow(){const a=document.activeElement;return a&&$("#main").contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=="checkbox";}
+function editingNow(){const a=document.activeElement;return a&&$("#main").contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=="checkbox"&&a.type!=="file";}
 function renderSoft(){if(editingNow()){pendingRender=true;return;}render();}
 $("#main").addEventListener("focusout",()=>{if(pendingRender)setTimeout(()=>{if(!editingNow()){pendingRender=false;render();}},0);});
 
-function tabsFor(){const t=[["schedule","勤務表"],["requests","希望・指定"]];if(S.isAdmin)t.push(["staff","スタッフ","師長"],["wards","病棟プロファイル","師長"]);return t;}
+function tabsFor(){const t=[["schedule","勤務表"]];if(S.isAdmin||prof().requestMode==="app")t.push(["requests","希望・指定"]);if(S.isAdmin)t.push(["staff","スタッフ","師長"],["wards","病棟プロファイル","師長"]);return t;}
 function render(){
   const ws=S.wards;
   if(ws.length&&!wardDoc(S.wardId))S.wardId=ws[0]._id;
@@ -616,11 +616,11 @@ function genPanel(wid,m,doc){
   const pre=sub.total?precheck(buildModel(wid,m,num(off,9))):[];
   return `<section class="panel" aria-labelledby="genTitle">
    <div class="panel-head"><div class="stack"><h2 id="genTitle">${esc(wardName(wid))}　${monthLabel(m)}の勤務表</h2><div class="row">${status}${doc?.generatedAt?`<span class="hint">作成 ${fmtTime(doc.generatedAt)}${doc.edited?"・手直しあり":""}</span>`:""}</div></div>
-    ${doc?`<div class="row"><button class="btn" data-action="publish">${doc.status==="published"?"非公開に戻す":"スタッフに公開する"}</button><button class="btn" data-action="csv">CSVで保存</button></div>`:""}</div>
+    ${doc?`<div class="row"><button class="btn" data-action="publish">${doc.status==="published"?"非公開に戻す":"スタッフに公開する"}</button><button class="btn" data-action="print">印刷用に保存</button><button class="btn" data-action="csv">CSVで保存</button></div>`:""}</div>
    <div class="gen-grid">
-    <div class="stack"><div class="row"><strong>希望の提出</strong><span>${sub.done.length} / ${sub.total}名</span><span class="hint">締切 ${monthLabel(addMonth(m,-1))}${p.deadlineDay}日</span></div>
+    <div class="stack"><div class="row"><strong>希望の受付</strong><span>${sub.done.length} / ${sub.total}名</span><span class="hint">締切 ${monthLabel(addMonth(m,-1))}${p.deadlineDay}日</span></div>
      <div class="meter" aria-hidden="true"><span style="width:${pct}%"></span></div>
-     ${sub.pending.length?`<details><summary class="hint">未提出の${sub.pending.length}名を見る</summary><div class="chips" style="margin-top:6px">${sub.pending.map(x=>`<span class="chip">${esc(x.name)}</span>`).join("")}</div></details>`:sub.total?`<p class="hint">全員の希望がそろいました。</p>`:""}</div>
+     ${sub.pending.length?`<details><summary class="hint">まだ受け付けていない${sub.pending.length}名を見る</summary><div class="chips" style="margin-top:6px">${sub.pending.map(x=>`<span class="chip">${esc(x.name)}</span>`).join("")}</div></details>`:sub.total?`<p class="hint">全員の希望がそろいました。</p>`:""}</div>
     <div class="gen-form">
      <label class="f" for="offDaysInput">この月の公休数<span class="row"><input id="offDaysInput" type="number" min="0" max="20" value="${esc(off)}"> 日</span></label>
      <button class="btn primary" data-action="generate" ${S.gen||!sub.total?"disabled":""}>勤務表を作成</button></div>
@@ -685,7 +685,7 @@ function renderRequests(){
   const own=!S.isAdmin&&S.uid?S.requests[S.uid]:null;
   if(!S.reqSel||!ns.some(x=>x._id===S.reqSel)){const oid=own?.staffId;S.reqSel=oid&&ns.some(x=>x._id===oid)?oid:(S.isAdmin?ns[0]._id:null);}
   const sid=S.reqSel,p=prof();
-  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>${monthLabel(m)}の希望・勤務指定</h2>
+  let h=(S.isAdmin?importHtml():"")+`<section class="panel"><div class="panel-head"><div class="stack"><h2>${S.isAdmin?"一人ずつの確認・代理入力":monthLabel(m)+"の希望・勤務指定"}</h2>
     <p class="hint">締切：${monthLabel(addMonth(m,-1))}${p.deadlineDay}日。休み希望、勤務できない時間帯、委員会・会議などで勤務が決まっている日を入力してください。</p></div></div>
    <label class="f" for="reqStaff">${S.isAdmin?"入力するスタッフ（師長による代理入力）":"あなたの名前"}
     <select id="reqStaff"><option value="">選んでください</option>${ns.map(x=>`<option value="${esc(x._id)}" ${x._id===sid?"selected":""}>${esc(x.name)}${x.role==="care"?"（ケアワーカー）":""}</option>`).join("")}</select></label>`;
@@ -711,7 +711,7 @@ function modeHelp(){
     clear:"日付を押すと、その日の入力を消します。"}[S.reqMode];
   const lab=S.reqMode==="fixD"||S.reqMode==="fixN"?`<label class="f" for="reqLabel" style="max-width:320px">指定の理由（任意・勤務表に表示）<input type="text" id="reqLabel" maxlength="16" value="${esc(S.reqLabel)}" placeholder="例：感染対策委員会"></label>`:"";
   return `<div class="stack"><p class="hint">${t}</p>${lab}</div>`;}
-function reqStatus(r){if(!r)return "まだ入力されていません";const who=r.by==="manager"?"（師長が入力）":"";return(r.submitted?`提出済み ${fmtTime(r.updatedAt)}`:`一時保存 ${fmtTime(r.updatedAt)}・まだ提出されていません`)+who+(S.reqDraft?.dirty?"／未保存の変更があります":"");}
+function reqStatus(r){if(!r)return "まだ入力されていません";const who=r.by==="manager"?"（師長が入力）":r.by==="form"?"（Googleフォームから取り込み）":"";return(r.submitted?`提出済み ${fmtTime(r.updatedAt)}`:`一時保存 ${fmtTime(r.updatedAt)}・まだ提出されていません`)+who+(S.reqDraft?.dirty?"／未保存の変更があります":"");}
 function loadDraft(sid,m){const key=sid+"|"+m;if(S.reqDraft&&S.reqDraft.key===key&&S.reqDraft.dirty)return;
   const r=requestFor(sid,m);S.reqDraft={key,sid,m,days:clone(r?.days||{}),note:r?.note||"",dirty:false};}
 function calHtml(m,x){
@@ -849,6 +849,12 @@ function rulesHtml(){
    <div class="row" style="gap:18px"><label class="check"><input type="checkbox" id="rHol" data-bind="holidayAsSunday" ${r.holidayAsSunday?"checked":""}> 祝日も日曜と同じ休日運用にする</label>
     <label class="check"><input type="checkbox" id="rNL" data-bind="nightLeader" ${r.nightLeader?"checked":""}> 夜勤にもリーダー可の看護師を1名以上置く</label></div>
   </section>
+  <section class="panel"><h2>希望の集め方</h2>
+   <label class="f" for="rMode" style="max-width:520px">看護師・ケアワーカーの希望・勤務指定<select id="rMode" data-bind="requestMode">
+     <option value="form" ${r.requestMode==="form"?"selected":""}>Googleフォームで集め、師長がCSVで取り込む</option>
+     <option value="app" ${r.requestMode==="app"?"selected":""}>スタッフがこのアプリで直接入力する</option></select></label>
+   <p class="hint">Googleフォームで集める場合、スタッフにはこのアプリの「希望・指定」タブを表示しません。アプリを使うのは師長だけで済みます。</p>
+  </section>
   <section class="panel"><div class="stack"><h2>夜勤のきまり</h2><p class="hint">ここで「必ず」とした条件は、自動作成で破られることはありません。満たせない場合は、その日が人数不足として表示されます。</p></div>
    <label class="f" for="rAke" style="max-width:520px">夜勤入り・明けと、明けの翌日<select id="rAke" data-bind="akeOff">
      <option value="required" ${r.akeOff==="required"?"selected":""}>入り・明けは1セット。明けの翌日は必ず休み</option>
@@ -972,6 +978,144 @@ async function exportCsv(){
   if(!dl){toast("この表示ではファイルを保存できません。claude.ai 上で開いてください。");return;}
   try{await dl.save({filename:fn,data:csv});}catch(e){if(e&&e.code!=="declined")toast("CSVを保存できませんでした。");}}
 
+
+/* ---------- Googleフォームの回答の取り込み ---------- */
+const FORM_COLS={off:"休み希望",unD:"日勤×",unN:"夜勤×",avD:"日勤△",avN:"夜勤△",fixD:"日勤指定",fixN:"夜勤指定"};
+const norm=s=>String(s||"").normalize("NFKC").replace(/\s/g,"");
+function monthKey(s){const mm=String(s||"").normalize("NFKC").match(/(\d{4})\D+(\d{1,2})/);return mm?`${mm[1]}-${pad(mm[2])}`:"";}
+function parseTs(s){const t=Date.parse(String(s||"").replace(/-/g,"/"));return isNaN(t)?0:t;}
+function decodeCsv(buf){const u8=new Uint8Array(buf);try{return new TextDecoder("utf-8",{fatal:true}).decode(u8).replace(/^﻿/,"");}catch(e){return new TextDecoder("shift_jis").decode(u8);}}
+function parseCSV(t){const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+    else if(c==='"')q=true;else if(c===","){row.push(f);f="";}
+    else if(c==="\n"){row.push(f);rows.push(row);row=[];f="";}else if(c!=="\r")f+=c;}
+  if(f!==""||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.some(x=>x!==""));}
+async function handleImportFile(file){
+  if(!file)return;let text;
+  try{text=decodeCsv(await file.arrayBuffer());}catch(e){toast("ファイルを読み込めませんでした。");return;}
+  const rows=parseCSV(text);
+  if(rows.length<2){toast("回答が見つかりません。フォームの回答シートのCSVか確かめてください。");return;}
+  S.imp=buildImport(rows,S.month,file.name);render();}
+function buildImport(rows,m,fileName){
+  const head=rows[0].map(h=>String(h).trim()),L=monthInfo(m).L,col=f=>head.findIndex(f);
+  const cTs=col(h=>/タイムスタンプ|timestamp/i.test(h)),cMonth=col(h=>h.includes("対象月")),cWard=col(h=>h.includes("病棟")&&!h.startsWith("氏名"));
+  const cNames=head.map((h,i)=>h.startsWith("氏名")?i:-1).filter(i=>i>=0);
+  const cDays=[];head.forEach((h,i)=>{const mm=h.normalize("NFKC").match(/\[\s*(\d{1,2})\s*日\s*\]/);if(mm)cDays.push([i,Number(mm[1])]);});
+  const cReason=col(h=>h.includes("理由")),cNote=col(h=>h.includes("自由記載"));
+  if(cMonth<0||!cNames.length||!cDays.length)return{fileName,m,rows:[],other:0,errors:["このCSVには「対象月」「氏名」「希望・指定」の列が見つかりません。フォーム作成プログラムで作ったフォームの回答シートか確かめてください。"]};
+  let other=0;const out=[];
+  rows.slice(1).forEach((r,ri)=>{
+    if(monthKey(r[cMonth])!==m){other++;return;}
+    const wardNm=cWard>=0?String(r[cWard]||"").trim():"",w=S.wards.find(x=>norm(x.name)===norm(wardNm));
+    const csvName=cNames.map(i=>String(r[i]||"").trim()).find(Boolean)||"";
+    const hit=(w?staffOf(w._id):S.staff).find(x=>norm(x.name)===norm(csvName));
+    const warns=[];
+    if(wardNm&&!w)warns.push(`病棟「${wardNm}」がアプリに登録されていません`);
+    if(!hit)warns.push(`「${csvName||"（氏名なし）"}」が名簿に見つかりません。左の欄で選んでください`);
+    const labels={},noteParts=[];
+    String(cReason>=0?r[cReason]||"":"").split(/\r?\n|[、,]/).map(x=>x.trim()).filter(Boolean).forEach(x=>{
+      const mm=x.normalize("NFKC").match(/^(\d{1,2})\s*日?\s*[:：]?\s*(.+)$/);if(mm)labels[Number(mm[1])]=mm[2].trim().slice(0,16);else noteParts.push(x);});
+    const days={};let cOff=0,cUn=0,cAv=0,cFix=0;
+    cDays.forEach(([ci,d])=>{const v=String(r[ci]||"").trim();if(!v)return;
+      if(d>L){warns.push(`${d}日はこの月にないため無視します`);return;}
+      const set=new Set(v.split(/[,;、]/).map(x=>x.trim()).filter(Boolean)),c={};
+      if(set.has(FORM_COLS.off)){c.off=1;if(set.size>1)warns.push(`${d}日：休み希望と他の項目が両方付いています（休み希望を優先）`);}
+      else{
+        if(set.has(FORM_COLS.fixD)&&set.has(FORM_COLS.fixN))warns.push(`${d}日：日勤指定と夜勤指定が両方付いています（指定なしにします）`);
+        else if(set.has(FORM_COLS.fixD))c.fix="D";else if(set.has(FORM_COLS.fixN))c.fix="N";
+        if(set.has(FORM_COLS.unD))c.D=2;else if(set.has(FORM_COLS.avD))c.D=1;
+        if(set.has(FORM_COLS.unN))c.N=2;else if(set.has(FORM_COLS.avN))c.N=1;
+        if(c.fix==="D"&&c.D){warns.push(`${d}日：日勤指定と日勤の×/△が両方付いています（日勤指定を優先）`);delete c.D;}
+        if(c.fix==="N"&&c.N){warns.push(`${d}日：夜勤指定と夜勤の×/△が両方付いています（夜勤指定を優先）`);delete c.N;}
+        if(c.fix&&labels[d])c.label=labels[d];}
+      if(Object.keys(c).length){days[d]=c;if(c.off)cOff++;if(c.D===2||c.N===2)cUn++;if(c.D===1||c.N===1)cAv++;if(c.fix)cFix++;}});
+    Object.entries(days).forEach(([d,c])=>{if(c.fix==="N"&&(days[+d+1]?.off||days[+d+1]?.fix==="D"))warns.push(`${d}日の夜勤指定の翌日が休み希望・日勤指定です（明けと重なります）`);});
+    Object.keys(labels).forEach(d=>{if(!days[d]?.fix)noteParts.push(`${d}日 ${labels[d]}`);});
+    const note=[cNote>=0?String(r[cNote]||"").trim():"",noteParts.length?"（指定の理由欄より）"+noteParts.join("、"):""].filter(Boolean).join("\n").slice(0,600);
+    out.push({ts:parseTs(cTs>=0?r[cTs]:""),wardName:wardNm,wid:w?._id||"",csvName,sid:hit?._id||"",days,note,warns,cOff,cUn,cAv,cFix,include:!!hit,old:false});});
+  dedupeImport(out);
+  return{fileName,m,rows:out,other,errors:[]};}
+function dedupeImport(rows){const latest={};
+  rows.forEach(r=>{if(r.sid&&(!latest[r.sid]||r.ts>=latest[r.sid].ts))latest[r.sid]=r;});
+  rows.forEach(r=>{r.old=!!(r.sid&&latest[r.sid]!==r);if(r.old)r.include=false;});}
+function namesScript(){return "const WARDS = {\n"+S.wards.map(w=>`  ${JSON.stringify(w.name||"病棟")}: [${staffOf(w._id).map(x=>JSON.stringify(x.name)).join(", ")}],`).join("\n")+"\n};";}
+function importHtml(){
+  const m=S.month,I=S.imp;
+  let h=`<section class="panel"><div class="panel-head"><div class="stack"><h2>Googleフォームの回答を取り込む</h2>
+    <p class="hint">回答のスプレッドシートを「ファイル → ダウンロード → カンマ区切り形式（.csv）」で保存し、下で選んでください。<strong>${monthLabel(m)}</strong>分の回答を、全病棟まとめて取り込みます（月は画面右上で切り替え）。</p></div>
+    <button class="btn small" data-action="names-show">${S.showNames?"氏名リストを閉じる":"フォーム用の氏名リスト"}</button></div>`;
+  if(S.showNames)h+=`<div class="stack"><p class="hint">フォーム作成プログラムの冒頭にある <code>const WARDS = …</code> の部分を、下の内容に置き換えてください。名簿を変えたときは、置き換えた後に <code>updateChoices</code> を実行します。</p>
+    <label class="sr" for="namesTxt">フォーム用の氏名リスト</label><textarea id="namesTxt" readonly rows="7" style="font-family:ui-monospace,monospace;font-size:.8rem">${esc(namesScript())}</textarea>
+    <div class="row"><button class="btn small" data-action="names-copy">コピー</button></div></div>`;
+  h+=`<label class="f" for="impFile">回答のCSVファイル<input type="file" id="impFile" accept=".csv,text/csv"></label>`;
+  if(I)h+=importPreview(I);
+  return h+`</section>`;}
+function importPreview(I){
+  if(I.errors.length)return `<div class="precheck">${I.errors.map(esc).join("<br>")}</div><div class="row"><button class="btn small" data-action="imp-cancel">閉じる</button></div>`;
+  let h=`<div class="stack"><p><strong>${esc(I.fileName)}</strong>：${monthLabel(I.m)}分の回答 ${I.rows.length}件${I.other?`（ほかの月の回答 ${I.other}件は対象外）`:""}</p>`;
+  if(I.m!==S.month)h+=`<p class="precheck">画面の月を切り替えたため、このファイルは${monthLabel(I.m)}分として読み込まれています。${monthLabel(S.month)}分を取り込むには、ファイルを選び直してください。</p>`;
+  if(!I.rows.length)return h+`<p class="hint">この月の回答はありませんでした。画面右上の対象月を確かめてください。</p><div class="row"><button class="btn small" data-action="imp-cancel">閉じる</button></div></div>`;
+  const n=I.rows.filter(r=>r.include&&r.sid).length;
+  h+=`<div class="tbl-wrap"><table class="list"><thead><tr><th>取込</th><th>回答日時</th><th>病棟</th><th>フォームの氏名</th><th>名簿のスタッフ</th><th>休み希望</th><th>不可</th><th>避けたい</th><th>指定</th><th>確認事項</th></tr></thead><tbody>`;
+  I.rows.forEach((r,i)=>{const pool=r.wid?staffOf(r.wid):S.staff,ex=r.sid&&requestFor(r.sid,I.m),warns=[...r.warns];
+    if(r.old)warns.unshift("同じ人のもっと新しい回答があるため、こちらは取り込みません");
+    if(ex&&r.include)warns.push("この月の入力済みの内容を置き換えます");
+    h+=`<tr><td><input type="checkbox" data-imp="${i}" aria-label="${esc(r.csvName)}を取り込む" ${r.include?"checked":""} ${r.sid?"":"disabled"}></td>
+     <td>${r.ts?fmtTime(r.ts):"—"}</td><td>${esc(r.wardName)}</td><td>${esc(r.csvName)}</td>
+     <td><select data-impsid="${i}" aria-label="${esc(r.csvName)}に当たる名簿のスタッフ"><option value="">選んでください</option>${pool.map(x=>`<option value="${esc(x._id)}" ${x._id===r.sid?"selected":""}>${esc(x.name)}${r.wid?"":"（"+esc(wardName(x.wardId))+"）"}</option>`).join("")}</select></td>
+     <td class="num">${r.cOff||""}</td><td class="num">${r.cUn||""}</td><td class="num">${r.cAv||""}</td><td class="num">${r.cFix||""}</td>
+     <td style="white-space:normal;min-width:240px">${warns.length?warns.map(w=>`<div class="hint" style="color:var(--warn)">${esc(w)}</div>`).join(""):`<span class="chip ok">問題なし</span>`}</td></tr>`;});
+  h+=`</tbody></table></div><div class="row"><button class="btn primary" data-action="imp-commit" ${n&&!S.impBusy&&I.m===S.month?"":"disabled"}>${n}名分を取り込む</button><button class="btn" data-action="imp-cancel">やめる</button></div></div>`;
+  return h;}
+async function commitImport(){
+  const I=S.imp;if(!I||I.m!==S.month)return;const list=I.rows.filter(r=>r.include&&r.sid);if(!list.length){toast("取り込む回答が選ばれていません。");return;}
+  S.impBusy=true;render();
+  try{for(const r of list){const docId="mgr-"+r.sid,cur=S.requests[docId],x=staffById(r.sid);
+      const base=cur?{...cur}:{staffId:r.sid,months:{}};base.staffId=r.sid;base.wardId=x?.wardId||r.wid;
+      base.months={...(base.months||{}),[I.m]:{days:r.days,note:r.note,submitted:true,updatedAt:r.ts||Date.now(),by:"form"}};
+      await Store.set("requests/"+docId,base);}
+    toast(`${list.length}名分の希望・勤務指定を取り込みました。勤務表タブで作成できます。`);S.imp=null;}
+  catch(e){writeError(e);}
+  S.impBusy=false;render();}
+
+/* ---------- 掲示・印刷用のファイル ---------- */
+function printHtml(wid,m,doc){
+  const A=analyze(wid,m,doc),{M,g,dayStats,stats}=A,{L,mi,staff,p}=M,lead=doc.leaders||{},nl=doc.nightLeaders||{};
+  const cls=dy=>holidayOp(dy,p)||dy.hol?"sun":dy.wd===6?"sat":"";
+  const css=`@page{size:A3 landscape;margin:8mm}*{box-sizing:border-box}body{font-family:"BIZ UDPGothic","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;margin:0;padding:12px;color:#111;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+h1{font-size:16pt;margin:0 0 2px}.sub{font-size:9pt;color:#444;margin:0 0 8px}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8.5pt}
+th,td{border:1px solid #8a8a8a;text-align:center;padding:1px 0;height:19px;overflow:hidden;white-space:nowrap}th.nm,td.nm{width:96px;text-align:left;padding-left:4px}col.st{width:26px}
+.D{background:#fbe6b4}.N{background:#2e3d7c;color:#fff}.A{background:#e2e0f1}.X{color:#777}thead th{background:#f3f3f3}.sun{color:#b3413a}.sat{color:#2d5ca6}
+tr.grp th{background:#efe8f7;text-align:left;padding-left:4px}tfoot th,tfoot td{background:#f3f3f3}.short{color:#b0261e;font-weight:700}
+.legend{font-size:8.5pt;margin-top:6px;color:#333}.bar{margin-bottom:10px;font-size:10pt}.bar button{font-size:12pt;padding:6px 18px;margin-right:10px}@media print{.bar{display:none}}`;
+  let h=`<table><colgroup><col class="nm" style="width:96px">${mi.days.map(()=>"<col>").join("")}<col class="st"><col class="st"><col class="st"></colgroup><thead><tr><th class="nm">氏名</th>`;
+  mi.days.forEach(dy=>{h+=`<th class="${cls(dy)}">${dy.d}<br>${WD[dy.wd]}${dy.hol?"祝":""}</th>`;});
+  h+=`<th>日</th><th>夜</th><th>休</th></tr></thead><tbody>`;
+  let care=false;
+  staff.forEach((x,i)=>{if(M.role[i]===1&&!care){care=true;h+=`<tr class="grp"><th colspan="${L+4}">ケアワーカー</th></tr>`;}
+    h+=`<tr><td class="nm">${esc(x.name)}</td>`;
+    for(let d=0;d<L;d++){const v=g[i*L+d],ld=(v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id);h+=`<td class="${CH[v]}">${LABEL[v]}${ld?"L":""}</td>`;}
+    h+=`<td>${stats[i].D}</td><td>${stats[i].N}</td><td>${stats[i].off}</td></tr>`;});
+  h+=`</tbody><tfoot>`;
+  const foot=(label,fn)=>{h+=`<tr><th class="nm">${label}</th>${dayStats.map(fn).join("")}<td colspan="3"></td></tr>`;};
+  const cell=(c,r)=>`<td class="${c<r?"short":""}">${c}</td>`;
+  foot("日勤 看護師",s=>cell(s.cD[0],s.reqD[0]));foot("夜勤 看護師",s=>cell(s.cN[0],s.reqN[0]));
+  if(M.role.includes(1)){foot("日勤 CW",s=>cell(s.cD[1],s.reqD[1]));foot("夜勤 CW",s=>cell(s.cN[1],s.reqN[1]));}
+  h+=`</tfoot></table>`;
+  const title=`${wardName(wid)} ${monthLabel(m)} 勤務表`;
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${css}</style></head><body>
+<div class="bar"><button onclick="window.print()">印刷する</button>用紙は A3 横を想定しています。印刷画面で「背景のグラフィック」をオンにすると色が付きます。</div>
+<h1>${esc(title)}</h1><p class="sub">${doc.status==="published"?"":"【下書き】"}出力 ${fmtTime(Date.now())}　公休数 ${num(doc.offDays,p.offDays)}日</p>${h}
+<p class="legend">日：日勤　日L：日勤リーダー　夜：夜勤入り　${p.nightLeader?"夜L：夜勤リーダー　":""}明：夜勤明け　休：休み　／　CW：ケアワーカー</p></body></html>`;}
+async function exportPrint(){
+  const wid=S.wardId,m=S.month,doc=schedOf(wid,m);if(!doc)return;
+  const dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(()=>null):null;
+  if(!dl){toast("この表示ではファイルを保存できません。claude.ai 上で開いてください。");return;}
+  try{await dl.save({filename:`勤務表_${wardName(wid)}_${m}_印刷用.html`,data:printHtml(wid,m,doc)});toast("保存したファイルをブラウザで開き、「印刷する」を押してください。");}
+  catch(e){if(e&&e.code!=="declined")toast("印刷用のファイルを保存できませんでした。");}}
+
 /* ---------- 例のスタッフ ---------- */
 // [氏名, 入職, 経験, リーダー, 勤務タイプ, 追加の設定]
 const SAMPLE=[["高橋",18,24,1,"normal"],["田中",12,15,1,"normal"],["伊藤",10,12,1,"nightMain"],["渡辺",9,11,1,"normal"],["山本",8,9,1,"normal"],["中村",7,8,1,"normal"],
@@ -1014,6 +1158,13 @@ document.addEventListener("click",ev=>{
     case"generate-no":S.confirmGen=false;render();break;
     case"publish":{const key=schedKey(S.wardId,S.month),d=clone(schedOf(S.wardId,S.month));delete d._id;const pub=d.status!=="published";d.status=pub?"published":"draft";commitSched(key,d);toast(pub?"スタッフに公開しました。":"非公開に戻しました。");break;}
     case"csv":exportCsv();break;
+    case"print":exportPrint();break;
+    case"imp-commit":commitImport();break;
+    case"imp-cancel":S.imp=null;render();break;
+    case"names-show":S.showNames=!S.showNames;render();break;
+    case"names-copy":{const ta=$("#namesTxt");const done=()=>toast("コピーしました。フォーム作成プログラムの WARDS の部分に貼り付けてください。");
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(ta.value).then(done).catch(()=>{ta.focus();ta.select();toast("選択しました。Ctrl＋C（Macは⌘＋C）でコピーしてください。");});
+      else{ta.focus();ta.select();toast("選択しました。Ctrl＋C（Macは⌘＋C）でコピーしてください。");}break;}
     case"cell":if(S.pop&&S.pop.sid===b.dataset.sid&&S.pop.d===Number(b.dataset.d))closePop();else openPop(b);break;
     case"pop":applyCell(b.dataset.v);break;
     case"req-mode":S.reqMode=b.dataset.v;document.querySelectorAll('[data-action="req-mode"]').forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.reqMode)));$("#reqModeHelp").innerHTML=modeHelp();break;
@@ -1069,6 +1220,9 @@ document.addEventListener("change",ev=>{
   const t=ev.target;
   if(t.id==="monthInput")setMonth(t.value);
   else if(t.id==="wardSel")setWard(t.value);
+  else if(t.id==="impFile")handleImportFile(t.files&&t.files[0]);
+  else if(t.dataset.imp!=null&&S.imp){S.imp.rows[Number(t.dataset.imp)].include=t.checked;render();}
+  else if(t.dataset.impsid!=null&&S.imp){const r=S.imp.rows[Number(t.dataset.impsid)];r.sid=t.value;dedupeImport(S.imp.rows);r.include=!!r.sid&&!r.old;render();}
   else if(t.id==="reqStaff"){S.reqSel=t.value||null;S.reqDraft=null;render();}
   else if(t.id==="ngA")S.ngA=t.value;else if(t.id==="ngB")S.ngB=t.value;
   else if(t.id==="fRole"){const care=t.value==="care";["fLeaderWrap","fNewWrap","fPrecWrap"].forEach(i=>{const el=document.getElementById(i);if(el)el.hidden=care;});}});
