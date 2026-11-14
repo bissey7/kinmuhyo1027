@@ -266,7 +266,8 @@ const PD={ // 病棟プロファイルの既定値（staffing の配列の添字
   preceptor:{enabled:true,minExp:3,mode:"any",newNoNight:false,countNew:true},
   ngPairs:[],offDays:9,maxConsec:5,akeOff:"required",nightGap:4,nightHalf:true,
   maxNights:{normal:5,nightMain:8,nightOnly:10},
-  doubleOff:2,holidayOffMin:2,deadlineDay:20,requestMode:"form",memo:""
+  doubleOff:2,holidayOffMin:2,maxOffRun:4,nightSeniorExp:0,deadlineDay:20,requestMode:"form",
+  prio:{off:"mid",dbl:"mid",hol:"mid",longOff:"mid",night:"mid",avoid:"mid"},memo:""
 };
 const LKEY="ward-roster-local-v2";
 
@@ -333,9 +334,11 @@ const schedKey=(wid,m)=>wid+"_"+m;
 const schedOf=(wid,m)=>S.override[schedKey(wid,m)]||S.schedules[schedKey(wid,m)]||null;
 function requestFor(sid,m){let best=null;
   for(const doc of Object.values(S.requests)){if((doc.staffId||doc.nurseId)!==sid)continue;const r=doc.months&&doc.months[m];
-    if(r&&(!best||(r.updatedAt||0)>(best.updatedAt||0)))best=r;}
+    if(r&&r.days&&(!best||(r.updatedAt||0)>(best.updatedAt||0)))best=r;}
   return best;}
 const myReqDocId=sid=>S.isAdmin?"mgr-"+sid:S.uid;
+// 師長が指定した前月末の勤務（N=夜勤入り、A=明け、X=引き継ぎなし、空=前月の勤務表どおり）
+const carryFor=(sid,m)=>S.requests["mgr-"+sid]?.months?.[m]?.carry||"";
 function nightCap(x,p){if((x.nightType||"normal")==="dayOnly")return 0;if(x.maxNights!==""&&x.maxNights!=null)return num(x.maxNights,0);return num(p.maxNights[x.nightType||"normal"],5);}
 // 毎週の条件と、その月の希望・指定を一日ずつ合わせたもの
 function dayReq(x,r,dy){
@@ -343,14 +346,19 @@ function dayReq(x,r,dy){
   const c=r?.days?.[dy.d];return c&&Object.keys(c).length?c:base;}
 
 /* ---------- 自動作成のモデル ---------- */
-const W={short:1000,overD:15,overN:400,leader:900,precept:700,ng:1000,avoid:60,off:120,off2:30,
-  nightOver:2000,nightUnder:160,nightBal:12,consec:400,akeSoft:300,dbl:600,hol:700,gap:120,half:150};
+const W={short:4000,overD:15,overN:400,leader:2500,precept:2000,ng:3000,avoid:60,off:120,off2:30,
+  nightOver:2000,nightUnder:160,nightBal:12,consec:400,akeSoft:300,dbl:600,hol:700,gap:120,half:150,longOff:500,senior:2000};
+const PRIO={high:2.5,mid:1,low:0.3};
 
 function buildModel(wid,m,offTarget){
   const p=mergeProfile(wardDoc(wid)),mi=monthInfo(m),L=mi.L,staff=staffOf(wid),n=staff.length,pc=p.preceptor;
   const idx=new Map(staff.map((x,i)=>[x._id,i]));
   const M={wid,m,mi,L,n,staff,idx,p,offTarget,maxConsec:num(p.maxConsec,5),akeReq:p.akeOff==="required",akePref:p.akeOff==="preferred",
-    nightLeader:!!p.nightLeader,precOn:!!pc.enabled,precMode:pc.mode,nightGap:num(p.nightGap,0),nightHalf:!!p.nightHalf,half:Math.ceil(L/2),conflicts:[]};
+    nightLeader:!!p.nightLeader,precOn:!!pc.enabled,precMode:pc.mode,nightGap:num(p.nightGap,0),nightHalf:!!p.nightHalf,half:Math.ceil(L/2),conflicts:[],
+    maxOffRun:num(p.maxOffRun,0),seniorExp:num(p.nightSeniorExp,0)};
+  const pr=p.prio||{},f=k=>PRIO[pr[k]]??1;
+  M.w={...W,off:W.off*f("off"),off2:W.off2*f("off"),dbl:W.dbl*f("dbl"),hol:W.hol*f("hol"),longOff:W.longOff*f("longOff"),
+    half:W.half*f("night"),gap:W.gap*f("night"),nightBal:W.nightBal*f("night"),avoid:W.avoid*f("avoid")};
   M.role=staff.map(x=>x.role==="care"?1:0);
   M.isNew=staff.map((x,i)=>!M.role[i]&&!!x.isNew);
   M.newList=staff.map((x,i)=>i).filter(i=>M.isNew[i]);
@@ -358,6 +366,7 @@ function buildModel(wid,m,offTarget){
   M.qualP=staff.map((x,i)=>!M.role[i]&&!x.isNew&&num(x.exp)>=num(pc.minExp,3));
   M.prec=staff.map(x=>x.preceptorId&&idx.has(x.preceptorId)?idx.get(x.preceptorId):-1);
   M.leader=staff.map((x,i)=>!M.role[i]&&!!x.leader&&!x.isNew);
+  M.senior=staff.map((x,i)=>!M.role[i]&&!x.isNew&&M.seniorExp>0&&num(x.exp)>=M.seniorExp);
   M.type=staff.map(x=>x.nightType||"normal");
   M.maxN=staff.map(x=>nightCap(x,p));
   M.onlyFix=staff.map(x=>!!x.onlyDesignatedNights);
@@ -368,18 +377,21 @@ function buildModel(wid,m,offTarget){
   M.holDay=mi.days.map(d=>d.wd===0||d.hol?1:0);
   M.holMin=Math.min(num(p.holidayOffMin,0),M.holDay.reduce((a,b)=>a+b,0));
   const sz=n*L;
-  ["off","unD","unN","avD","avN","canD","canN","fix","locked"].forEach(k=>M[k]=new Uint8Array(sz));
-  M.g0=new Uint8Array(sz);M.label=new Array(sz).fill("");M.note=staff.map(()=>"");
+  ["off","kind","unD","unN","avD","avN","canD","canN","fix","locked"].forEach(k=>M[k]=new Uint8Array(sz));
+  M.g0=new Uint8Array(sz);M.label=new Array(sz).fill("");M.kindCh=new Array(sz).fill("");M.note=staff.map(()=>"");
   staff.forEach((x,i)=>{const r=requestFor(x._id,m);M.note[i]=r?.note||"";
     mi.days.forEach((dy,d)=>{const c=dayReq(x,r,dy),k=i*L+d;
-      M.off[k]=c.off?1:0;M.unD[k]=c.D===2?1:0;M.unN[k]=c.N===2?1:0;M.avD[k]=c.D===1?1:0;M.avN[k]=c.N===1?1:0;
+      M.off[k]=c.off?1:0;if(c.off&&c.kind){M.kind[k]=1;M.kindCh[k]=c.kind;}M.unD[k]=c.D===2?1:0;M.unN[k]=c.N===2?1:0;M.avD[k]=c.D===1?1:0;M.avN[k]=c.N===1?1:0;
       M.fix[k]=c.fix==="D"?1:c.fix==="N"?2:0;M.label[k]=c.label||"";});});
   const dl=d=>`${d+1}日`;
   const lockCell=(k,v)=>{if(M.locked[k]&&M.g0[k]!==v)return false;M.g0[k]=v;M.locked[k]=1;return true;};
   // 前月からの持ち越し
   const prev=schedOf(wid,addMonth(m,-1));
   M.carryRun=new Int16Array(n);M.prevAke=new Uint8Array(n);M.lastNight=new Int16Array(n).fill(-99);
-  staff.forEach((x,i)=>{const r=prev?.rows?.[x._id];if(!r)return;const Lp=r.length,b=i*L,last=r[Lp-1];
+  staff.forEach((x,i)=>{const b=i*L,cv=carryFor(x._id,m),r=prev?.rows?.[x._id];
+    if(cv==="N"){M.carryRun[i]=1;M.lastNight[i]=-1;lockCell(b,3);if(M.akeReq&&L>1)lockCell(b+1,0);return;}
+    if(cv==="A"){M.carryRun[i]=2;M.lastNight[i]=-2;M.prevAke[i]=1;if(M.akeReq)lockCell(b,0);return;}
+    if(cv==="X"||!r)return;const Lp=r.length,last=r[Lp-1];
     let run=0;for(let j=Lp-1;j>=0&&r[j]!=="X";j--)run++;M.carryRun[i]=run;
     const ln=r.lastIndexOf("N");if(ln>=0)M.lastNight[i]=ln-Lp;
     if(last==="N"){lockCell(b,3);if(M.akeReq&&L>1)lockCell(b+1,0);}
@@ -400,36 +412,40 @@ function buildModel(wid,m,offTarget){
   return M;}
 
 function dayCost(M,g,d){
-  const n=M.n,L=M.L,cD=[0,0],cN=[0,0];let ldD=false,ldN=false,c=0;
+  const n=M.n,L=M.L,cD=[0,0],cN=[0,0];let ldD=false,ldN=false,snN=false,c=0;
   for(let i=0;i<n;i++){const k=i*L+d,v=g[k];if(!v)continue;const r=M.role[i];
-    if(v===1){cD[r]+=M.cnt[i];if(M.leader[i])ldD=true;if(M.avD[k])c+=W.avoid;}
-    else if(v===2){cN[r]+=M.cnt[i];if(M.leader[i])ldN=true;if(M.avN[k])c+=W.avoid;}
-    else if(M.avD[k])c+=W.avoid/2;}
-  for(let r=0;r<2;r++){const sD=M.reqD[r][d]-cD[r];c+=sD>0?sD*W.short:sD*sD*W.overD;const sN=M.reqN[r][d]-cN[r];c+=sN>0?sN*W.short:(-sN)*W.overN;}
-  if(M.leadReq[d]&&!ldD)c+=W.leader;
-  if(M.nightLeader&&M.reqN[0][d]>0&&!ldN)c+=W.leader;
+    if(v===1){cD[r]+=M.cnt[i];if(M.leader[i])ldD=true;if(M.avD[k])c+=M.w.avoid;}
+    else if(v===2){cN[r]+=M.cnt[i];if(M.leader[i])ldN=true;if(M.senior[i])snN=true;if(M.avN[k])c+=M.w.avoid;}
+    else if(M.avD[k])c+=M.w.avoid/2;}
+  for(let r=0;r<2;r++){const sD=M.reqD[r][d]-cD[r];c+=sD>0?sD*M.w.short:sD*sD*M.w.overD;const sN=M.reqN[r][d]-cN[r];c+=sN>0?sN*M.w.short:(-sN)*M.w.overN;}
+  if(M.leadReq[d]&&!ldD)c+=M.w.leader;
+  if(M.nightLeader&&M.reqN[0][d]>0&&!ldN)c+=M.w.leader;
+  if(M.seniorExp>0&&M.reqN[0][d]>0&&!snN)c+=M.w.senior;
   if(M.precOn)for(const i of M.newList){const v=g[i*L+d];if(v!==1&&v!==2)continue;let ok=false;
     if(M.precMode==="assigned"&&M.prec[i]>=0)ok=g[M.prec[i]*L+d]===v;
     else for(let j=0;j<n;j++){if(M.qualP[j]&&g[j*L+d]===v){ok=true;break;}}
-    if(!ok)c+=W.precept;}
-  for(const q of M.ng){const va=g[q[0]*L+d];if((va===1||va===2)&&va===g[q[1]*L+d])c+=W.ng;}
+    if(!ok)c+=M.w.precept;}
+  for(const q of M.ng){const va=g[q[0]*L+d];if((va===1||va===2)&&va===g[q[1]*L+d])c+=M.w.ng;}
   return c;}
 
 function nurseCost(M,g,i){
-  const L=M.L,b=i*L;let off=0,nights=0,run=M.carryRun[i],c=0,pairs=0,prevX=false,paired=false,hol=0,last=M.lastNight[i],h1=0,h2=0;
+  const L=M.L,b=i*L;let off=0,nights=0,run=M.carryRun[i],c=0,pairs=0,prevX=false,paired=false,hol=0,last=M.lastNight[i],h1=0,h2=0,orun=0,oint=0;
+  // 休みが続いた長さを、上限（休み希望の日数が多ければその日数）と比べる
+  const closeRun=()=>{if(M.maxOffRun>0&&orun&&!M.onlyFix[i]){const over=orun-Math.max(M.maxOffRun,oint);if(over>0)c+=over*M.w.longOff;}orun=0;oint=0;};
   for(let d=0;d<L;d++){const v=g[b+d];
-    if(v===0){off++;run=0;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
-    else{run++;if(run>M.maxConsec)c+=W.consec;prevX=false;paired=false;}
-    if(v===2){nights++;if(d<M.half)h1++;else h2++;if(d-last<M.nightGap&&!M.onlyFix[i])c+=W.gap;last=d;}
-    if(M.akePref){const pv=d===0?(M.prevAke[i]?3:0):g[b+d-1];if(pv===3&&(v===1||v===2))c+=W.akeSoft;}}
-  if(pairs<M.dblWant[i])c+=(M.dblWant[i]-pairs)*W.dbl;
-  if(hol<M.holMin)c+=(M.holMin-hol)*W.hol;
-  if(M.type[i]!=="nightOnly"){const dev=Math.abs(off-M.offTarget);c+=dev*W.off+dev*dev*W.off2;}
+    if(v===0){if(!M.kind[b+d])off++;run=0;orun++;if(M.off[b+d])oint++;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
+    else{closeRun();run++;if(run>M.maxConsec)c+=M.w.consec;prevX=false;paired=false;}
+    if(v===2){nights++;if(d<M.half)h1++;else h2++;if(d-last<M.nightGap&&!M.onlyFix[i])c+=M.w.gap;last=d;}
+    if(M.akePref){const pv=d===0?(M.prevAke[i]?3:0):g[b+d-1];if(pv===3&&(v===1||v===2))c+=M.w.akeSoft;}}
+  closeRun();
+  if(pairs<M.dblWant[i])c+=(M.dblWant[i]-pairs)*M.w.dbl;
+  if(hol<M.holMin)c+=(M.holMin-hol)*M.w.hol;
+  if(M.type[i]!=="nightOnly"){const dev=Math.abs(off-M.offTarget);c+=dev*M.w.off+dev*dev*M.w.off2;}
   const mx=M.maxN[i];
-  if(nights>mx)c+=(nights-mx)*W.nightOver;
-  if(M.type[i]==="nightMain"||M.type[i]==="nightOnly"){if(!M.onlyFix[i])c+=Math.max(0,mx-nights)*W.nightUnder;}
-  else c+=nights*nights*W.nightBal;
-  if(M.nightHalf&&!M.onlyFix[i]){const dv=Math.abs(h1-h2);if(dv>1)c+=(dv-1)*W.half;}
+  if(nights>mx)c+=(nights-mx)*M.w.nightOver;
+  if(M.type[i]==="nightMain"||M.type[i]==="nightOnly"){if(!M.onlyFix[i])c+=Math.max(0,mx-nights)*M.w.nightUnder;}
+  else c+=nights*nights*M.w.nightBal;
+  if(M.nightHalf&&!M.onlyFix[i]){const dv=Math.abs(h1-h2);if(dv>1)c+=(dv-1)*M.w.half;}
   return c;}
 
 async function annealOnce(M,onProgress,p0,p1){
@@ -508,6 +524,12 @@ function precheck(M){
       let fixed=0,avail=0;for(let d=0;d<M.L;d++){const k=i*M.L+d;if(M.fix[k]===2)fixed++;if(M.canN[k])avail++;}
       cap+=M.onlyFix[i]?fixed:Math.min(M.maxN[i],Math.max(fixed,Math.ceil(avail/(M.akeReq?3:2))));});
     if(cap<need)out.push(`${r?"ケアワーカー":"看護師"}の夜勤：必要な延べ人数は${need}回ですが、夜勤に入れる人の上限の合計は${cap}回です。夜勤の上限・人数・勤務タイプを見直さないと、不足が出ます。`);}
+  // 公休数と配置人数が両立するか（延べの勤務日数で比べる。明けも勤務日に数える）
+  for(let r=0;r<2;r++){let need=0,supply=0;
+    for(let d=0;d<M.L;d++)need+=M.reqD[r][d]+2*M.reqN[r][d];
+    M.staff.forEach((x,i)=>{if(M.role[i]!==r||!M.cnt[i])return;let kd=0;for(let d=0;d<M.L;d++)if(M.kind[i*M.L+d])kd++;
+      supply+=M.type[i]==="nightOnly"?2*M.maxN[i]:Math.max(0,M.L-M.offTarget-kd);});
+    if(need&&supply<need)out.push(`${r?"ケアワーカー":"看護師"}の勤務日数：公休${M.offTarget}日だと、配置人数に数える人が勤務できる延べ日数は約${supply}日で、配置人数を満たすのに必要な約${need}日（夜勤は明けを含めて2日）に足りません。公休どおりにすると人数不足になるため、作成では人数を優先し、公休が少なくなる人が出ます。`);}
   // 日曜・祝日の休みを全員に確保できるか（勤務に入る人数＝日勤＋夜勤入り＋前日の夜勤の明け）
   if(M.holMin>0)for(let r=0;r<2;r++){const nr=M.role.filter(x=>x===r).length;if(!nr)continue;
     let cap=0,days=0;for(let d=0;d<M.L;d++){if(!M.holDay[d])continue;days++;cap+=Math.max(0,nr-M.reqD[r][d]-M.reqN[r][d]-(d>0?M.reqN[r][d-1]:M.reqN[r][d]));}
@@ -521,7 +543,7 @@ function precheck(M){
 function analyze(wid,m,doc){
   const M=buildModel(wid,m,num(doc?.offDays,prof().offDays)),{n,L,staff,mi}=M,g=new Uint8Array(n*L),rows=doc?.rows||{};
   staff.forEach((x,i)=>{const r=rows[x._id]||"";for(let d=0;d<L;d++)g[i*L+d]=CODE[r[d]]??0;});
-  const leaders=doc?.leaders||{},nl=doc?.nightLeaders||{},issues=[],dayStats=[],stats=[];
+  const leaders=doc?.leaders||{},nl=doc?.nightLeaders||{},issues=[],dayStats=[],stats=[],kinds=doc?.kinds||{};
   const dl=d=>`${d+1}日(${WD[mi.days[d].wd]})`,sh=v=>v===1?"日勤":v===2?"夜勤":v===3?"明け":"休み";
   M.conflicts.forEach(t=>issues.push({lv:"bad",t}));
   for(let d=0;d<L;d++){const cD=[0,0],cN=[0,0];
@@ -535,14 +557,17 @@ function analyze(wid,m,doc){
     if(M.leadReq[d]&&!lok){const has=staff.some((x,i)=>M.leader[i]&&g[i*L+d]===1);
       issues.push({lv:"bad",t:has?`${dl(d)} 日勤リーダーが未指定（リーダー可の看護師は勤務しています）`:`${dl(d)} 日勤にリーダー可の看護師がいません`});}
     if(M.nightLeader&&M.reqN[0][d]>0&&!nok)issues.push({lv:"bad",t:`${dl(d)} 夜勤リーダーがいません`});
+    if(M.seniorExp>0&&M.reqN[0][d]>0&&!staff.some((x,i)=>M.senior[i]&&g[i*L+d]===2))issues.push({lv:"bad",t:`${dl(d)} 夜勤に経験${M.seniorExp}年以上の看護師がいません`});
     if(M.precOn)for(const i of M.newList){const v=g[i*L+d];if(v!==1&&v!==2)continue;let ok;
       if(M.precMode==="assigned"&&M.prec[i]>=0)ok=g[M.prec[i]*L+d]===v;else ok=staff.some((x,j)=>M.qualP[j]&&g[j*L+d]===v);
       if(!ok)issues.push({lv:"bad",t:`${dl(d)} ${staff[i].name}（新人）の${sh(v)}に${M.precMode==="assigned"&&M.prec[i]>=0?"担当プリセプター":"経験"+M.p.preceptor.minExp+"年以上の看護師"}がいません`});}
     for(const[a,b]of M.ng){const va=g[a*L+d];if((va===1||va===2)&&va===g[b*L+d])issues.push({lv:"bad",t:`${dl(d)} ${staff[a].name}と${staff[b].name}が同じ${sh(va)}（同時勤務NG）`});}
   }
-  staff.forEach((x,i)=>{let D=0,N=0,off=0,hit=0,run=M.carryRun[i],over=0,pairs=0,prevX=false,paired=false,hol=0,h1=0,h2=0,last=M.lastNight[i],gapHit=0;const hits=[];
+  staff.forEach((x,i)=>{let D=0,N=0,off=0,oth=0,hit=0,run=M.carryRun[i],over=0,pairs=0,prevX=false,paired=false,hol=0,h1=0,h2=0,last=M.lastNight[i],gapHit=0,orun=0,oint=0,ostart=0;const hits=[],longs=[],kk=kinds[x._id]||{};
+    const closeRun=end=>{if(M.maxOffRun>0&&!M.onlyFix[i]&&orun>Math.max(M.maxOffRun,oint))longs.push(`${ostart+1}〜${end}日（${orun}連休）`);orun=0;oint=0;};
     for(let d=0;d<L;d++){const k=i*L+d,v=g[k],pv=d===0?(M.prevAke[i]?3:0):g[k-1];
-      if(v===0){off++;run=0;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
+      if(v===0){if(kk[d+1])oth++;else off++;if(!orun)ostart=d;orun++;if(M.off[k])oint++;}else if(orun)closeRun(d);
+      if(v===0){run=0;if(M.holDay[d])hol++;if(prevX&&!paired){pairs++;paired=true;}else paired=false;prevX=true;}
       else{run++;if(run===M.maxConsec+1)over++;prevX=false;paired=false;}
       if(v===1)D++;
       if(v===2){N++;if(d<M.half)h1++;else h2++;if(d-last<M.nightGap&&!M.onlyFix[i])gapHit++;last=d;}
@@ -555,7 +580,9 @@ function analyze(wid,m,doc){
       if(v===2&&d<L-1&&g[k+1]!==3)issues.push({lv:"bad",t:`${x.name} ${dl(d)}の夜勤の翌日が「明け」になっていません`});
       if(v===3&&pv!==2&&!(d===0&&M.locked[k]))issues.push({lv:"warn",t:`${x.name} ${dl(d)}の「明け」の前日が夜勤ではありません`});
       if(pv===3&&(v===1||v===2)&&M.p.akeOff!=="none")issues.push({lv:M.akeReq?"bad":"warn",t:`${x.name} ${dl(d)} 明けの翌日に${sh(v)}が入っています`});}
+    if(orun)closeRun(L);
     if(N>M.maxN[i])issues.push({lv:"bad",t:`${x.name} 夜勤${N}回（上限${M.maxN[i]}回）`});
+    if(longs.length)issues.push({lv:"warn",t:`${x.name} 長い連休：${longs.join("、")}（上限${M.maxOffRun}日。休み希望が続く日を除く）`});
     if(over)issues.push({lv:"warn",t:`${x.name} 連続勤務が${M.maxConsec}日を超える箇所があります`});
     if(M.type[i]!=="nightOnly"&&off!==M.offTarget)issues.push({lv:"warn",t:`${x.name} 休み${off}日（公休数${M.offTarget}日）`});
     if(pairs<M.dblWant[i])issues.push({lv:"warn",t:`${x.name} 2連休が${pairs}回（目標${M.dblWant[i]}回）`});
@@ -563,7 +590,7 @@ function analyze(wid,m,doc){
     if(M.nightHalf&&!M.onlyFix[i]&&Math.abs(h1-h2)>1)issues.push({lv:"warn",t:`${x.name} 夜勤が月の${h1>h2?"前半":"後半"}に偏っています（前半${h1}回・後半${h2}回）`});
     if(gapHit)issues.push({lv:"info",t:`${x.name} 夜勤の間隔が${M.nightGap}日未満の箇所が${gapHit}か所`});
     if(hits.length)issues.push({lv:"info",t:`${x.name} 「できれば避けたい」と重なり: ${hits.join("、")}`});
-    stats.push({D,N,off,hit,pairs,hol,h1,h2});});
+    stats.push({D,N,off,oth,hit,pairs,hol,h1,h2});});
   const order={bad:0,warn:1,info:2};issues.sort((a,b)=>order[a.lv]-order[b.lv]);
   return{M,g,dayStats,stats,issues};}
 
@@ -626,21 +653,46 @@ function genPanel(wid,m,doc){
      <button class="btn primary" data-action="generate" ${S.gen||!sub.total?"disabled":""}>勤務表を作成</button></div>
    </div>
    ${pre.length?`<div class="precheck"><strong>作成前の確認</strong><ul>${pre.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}
+   ${sub.total?carryHtml(wid,m):""}
+   ${doc?approvalHtml(doc):""}
    ${S.confirmGen?`<div class="confirm"><span>${monthLabel(m)}の勤務表はすでにあります${doc?.edited?"（手直しも含めて）":""}。作り直すと置き換わり、下書きに戻ります。</span><button class="btn primary small" data-action="generate-yes">置き換えて作成</button><button class="btn small" data-action="generate-no">やめる</button></div>`:""}
    <div id="genProgress" ${S.gen?"":"hidden"} class="stack"><div class="meter"><span id="genBar" style="width:0%"></span></div><p class="hint">夜勤の上限・明けの翌日の休み・指定日を守りながら、人数・リーダー・プリセプター・連休・希望を照らし合わせています…</p></div>
   </section>`;}
+function carryHtml(wid,m){
+  const prev=schedOf(wid,addMonth(m,-1)),ns=staffOf(wid);let cnt=0;
+  const rows=ns.map(x=>{const r=prev?.rows?.[x._id],last=r?r[r.length-1]:"",cv=carryFor(x._id,m),eff=cv||last;
+    if(eff==="N"||eff==="A")cnt++;
+    return `<tr><td>${esc(x.name)}</td><td>${r?`前月の勤務表：${LABEL[CODE[last]??0]}`:`<span class="hint">前月の勤務表なし</span>`}</td>
+     <td><select data-carry="${esc(x._id)}" aria-label="${esc(x.name)}の前月末の勤務"><option value="" ${!cv?"selected":""}>${r?"前月の勤務表どおり":"引き継ぎなし"}</option>
+      <option value="N" ${cv==="N"?"selected":""}>前月末日に夜勤入り（1日は明け）</option><option value="A" ${cv==="A"?"selected":""}>前月末日が明け（1日は休み）</option>${r?`<option value="X" ${cv==="X"?"selected":""}>引き継がない</option>`:""}</select></td></tr>`;}).join("");
+  return `<details id="carryBox" ${S.carryOpen?"open":""}><summary><strong>前月末からの引き継ぎ（月またぎの夜勤）</strong> <span class="hint">${cnt?cnt+"名が1日を明け・休みで始めます":"設定なし"}</span></summary>
+   <p class="hint" style="margin:6px 0">前月の勤務表がこのアプリにあれば、自動で引き継ぎます。ない場合や、前月の勤務が変わった場合は、ここで指定してください。夜勤入りを選ぶと1日は明け、明けの翌日の休みを「必ず」にしていれば2日は休みになります。</p>
+   <div class="tbl-wrap"><table class="list"><thead><tr><th>氏名</th><th>前月の記録</th><th>前月末日の勤務</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;}
+const CHECKS=["労務規定（夜勤回数・連続勤務・休日数など）と照らし合わせた","休暇の種類（公休・有給休暇・特別休暇）を確認した","一人ひとりの事情と、勤務帯ごとの組み合わせ（経験・相性）を確認した"];
+function approvalHtml(doc){
+  if(doc.approvedBy)return `<div class="confirm" style="background:var(--ok-soft)"><span class="chip ok">承認済み</span><span>${esc(doc.approvedBy)}（${fmtTime(doc.approvedAt)}）</span><button class="btn small" data-action="unapprove">承認を取り消す</button></div>`;
+  return `<details><summary><strong>最終確認と承認</strong> <span class="hint">勤務表を確定する判断は、人が行います</span></summary>
+   <div class="stack" style="margin-top:8px">${CHECKS.map((t,i)=>`<label class="check"><input type="checkbox" id="apC${i}"> ${esc(t)}</label>`).join("")}
+    <div class="row"><label class="f" for="apName">承認者<input type="text" id="apName" maxlength="20" placeholder="例：2階病棟 師長 真壁"></label><button class="btn primary" data-action="approve" style="align-self:flex-end">承認する</button></div>
+    <p class="hint">承認後にマスを直すと、承認は自動で取り消されます。印刷用ファイルには承認者と、押印用の欄が入ります。</p></div></details>`;}
+async function setCarry(sid,v){
+  const m=S.month,id="mgr-"+sid,cur=S.requests[id],x=staffById(sid);
+  const base=cur?{...cur}:{staffId:sid,months:{}};base.staffId=sid;base.wardId=x?.wardId||S.wardId;
+  const mo={...(base.months?.[m]||{})};if(v)mo.carry=v;else delete mo.carry;
+  base.months={...(base.months||{}),[m]:mo};
+  try{await Store.set("requests/"+id,base);}catch(e){writeError(e);}}
 function updateProgress(){const b=$("#genBar");if(b)b.style.width=Math.round(S.genP*100)+"%";}
 
 function tableHtml(m,doc,A){
-  const{M,g,dayStats,stats}=A,{L,mi,staff}=M,p=M.p,leaders=doc.leaders||{},nl=doc.nightLeaders||{};
+  const{M,g,dayStats,stats}=A,{L,mi,staff}=M,p=M.p,leaders=doc.leaders||{},nl=doc.nightLeaders||{},kinds=doc.kinds||{};
   const dcls=dy=>holidayOp(dy,p)||dy.hol?"sun":dy.wd===6?"sat":"";
-  const STATS=8;
+  const STATS=9;
   let h=`<section class="panel"><div class="panel-head"><h2>${monthLabel(m)} 勤務一覧</h2>
-   <div class="legend"><span><span class="c c-D">日</span>日勤</span><span><span class="c c-D">日<sup>L</sup></span>日勤リーダー</span><span><span class="c c-N">夜</span>夜勤入り</span><span><span class="c c-A">明</span>夜勤明け</span><span><span class="c c-X" style="border:1px solid var(--line)">休</span>休み</span><span>●指定日　右上：<b style="color:var(--bad)">◤</b>休み希望・不可 <b style="color:var(--warn)">◤</b>避けたい</span></div></div>
+   <div class="legend"><span><span class="c c-D">日</span>日勤</span><span><span class="c c-D">日<sup>L</sup></span>日勤リーダー</span><span><span class="c c-N">夜</span>夜勤入り</span><span><span class="c c-A">明</span>夜勤明け</span><span><span class="c c-X" style="border:1px solid var(--line)">休</span>公休</span><span><span class="c c-X" style="border:1px solid var(--line)">有</span>有給・<b>特</b>特別休暇</span><span>●指定日　右上：<b style="color:var(--bad)">◤</b>休み希望・不可 <b style="color:var(--warn)">◤</b>避けたい</span></div></div>
    ${S.isAdmin?`<p class="hint">マスを押すと勤務を手で直せます。変更はすぐに保存され、下の「確認が必要な点」もその場で更新されます。</p>`:""}
    <div class="scroll"><table class="roster"><thead><tr><th class="name-col">氏名</th>`;
   for(const dy of mi.days)h+=`<th class="day-h ${dcls(dy)}"><span class="dn">${dy.d}</span><span class="dw">${WD[dy.wd]}</span>${dy.hol?`<span class="hol">祝</span>`:""}</th>`;
-  h+=`<th class="stat">日</th><th class="stat">夜</th><th class="stat" title="夜勤の前半／後半">前/後</th><th class="stat">休</th><th class="stat" title="2連休の回数">連休</th><th class="stat" title="日曜・祝日の休み">日祝</th><th class="stat" title="「できれば避けたい」と重なった回数">△</th><th class="stat" title="配置人数に数えるか">数</th></tr></thead><tbody>`;
+  h+=`<th class="stat">日</th><th class="stat">夜</th><th class="stat" title="夜勤の前半／後半">前/後</th><th class="stat" title="公休">休</th><th class="stat" title="有給・特別休暇">有特</th><th class="stat" title="2連休の回数">連休</th><th class="stat" title="日曜・祝日の休み">日祝</th><th class="stat" title="「できれば避けたい」と重なった回数">△</th><th class="stat" title="配置人数に数えるか">数</th></tr></thead><tbody>`;
   let careHeader=false;
   staff.forEach((x,i)=>{const s=stats[i];
     if(M.role[i]===1&&!careHeader){careHeader=true;h+=`<tr class="group"><th class="name-col" scope="rowgroup">ケアワーカー</th><td colspan="${L+STATS}"></td></tr>`;}
@@ -649,12 +701,13 @@ function tableHtml(m,doc,A){
     for(let d=0;d<L;d++){const k=i*L+d,v=g[k];
       const mk=(M.off[k]||M.unD[k]||M.unN[k])?"mk-x":(M.avD[k]||M.avN[k])?"mk-tri":"";
       const hit=(M.off[k]&&v)||((v===1)&&M.unD[k])||(v===2&&M.unN[k])||(M.fix[k]&&v!==M.fix[k])?"hit-x":((v===1&&M.avD[k])||(v===2&&M.avN[k]))?"hit-tri":"";
-      const lab=LABEL[v]+((v===1&&leaders[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"<sup>L</sup>":"");
+      const kd=v===0?(kinds[x._id]||{})[d+1]||"":"";
+      const lab=(kd||LABEL[v])+((v===1&&leaders[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"<sup>L</sup>":"");
       const tip=[M.off[k]?"休み希望":"",M.fix[k]?`${M.fix[k]===1?"日勤":"夜勤"}指定${M.label[k]?"："+M.label[k]:""}`:"",M.unD[k]?"日勤不可":M.avD[k]?"日勤は避けたい":"",M.unN[k]?"夜勤不可":M.avN[k]?"夜勤は避けたい":""].filter(Boolean).join(" / ");
       const label=`${x.name} ${d+1}日 ${LABEL[v]}${tip?"（"+tip+"）":""}`;
       h+=`<td class="cell c-${CH[v]} ${mk} ${hit} ${M.fix[k]?"fixed":""}" ${tip?`title="${esc(tip)}"`:""}>${S.isAdmin?`<button data-action="cell" data-sid="${esc(x._id)}" data-d="${d}" aria-label="${esc(label)}">${lab}</button>`:`<span aria-label="${esc(label)}">${lab}</span>`}</td>`;}
     const offDev=M.type[i]!=="nightOnly"&&s.off!==M.offTarget;
-    h+=`<td class="stat">${s.D}</td><td class="stat ${s.N>M.maxN[i]?"dev":""}">${s.N}</td><td class="stat ${M.nightHalf&&Math.abs(s.h1-s.h2)>1?"soft":""}">${s.N?s.h1+"/"+s.h2:""}</td><td class="stat ${offDev?"soft":""}">${s.off}</td><td class="stat ${s.pairs<M.dblWant[i]?"soft":""}">${s.pairs}</td><td class="stat ${s.hol<M.holMin?"soft":""}">${s.hol}</td><td class="stat">${s.hit||""}</td><td class="stat">${M.cnt[i]?"":"外"}</td></tr>`;});
+    h+=`<td class="stat">${s.D}</td><td class="stat ${s.N>M.maxN[i]?"dev":""}">${s.N}</td><td class="stat ${M.nightHalf&&Math.abs(s.h1-s.h2)>1?"soft":""}">${s.N?s.h1+"/"+s.h2:""}</td><td class="stat ${offDev?"soft":""}">${s.off}</td><td class="stat">${s.oth||""}</td><td class="stat ${s.pairs<M.dblWant[i]?"soft":""}">${s.pairs}</td><td class="stat ${s.hol<M.holMin?"soft":""}">${s.hol}</td><td class="stat">${s.hit||""}</td><td class="stat">${M.cnt[i]?"":"外"}</td></tr>`;});
   h+=`</tbody><tfoot>`;
   const foot=(label,fn)=>{h+=`<tr><th class="name-col" scope="row">${label}</th>`;dayStats.forEach(s=>{h+=fn(s);});h+=`<td colspan="${STATS}"></td></tr>`;};
   const cntCell=(c,r)=>`<td class="${c<r?"short":c>r?"over":""}">${c}<small>/${r}</small></td>`;
@@ -677,7 +730,7 @@ function issuesHtml(A){
    <p class="hint">自動作成では、休み希望・勤務指定・夜勤の上限・夜勤入りと明けのセット・明けの翌日の休み・夜勤専従の条件を<strong>必ず守ります</strong>。そのうえで、人数・リーダー・プリセプター・同時勤務NGを最優先し、次に公休数・2連休・日曜祝日の休み・夜勤の偏り、最後に「できれば避けたい」を考えます。</p></section>`;}
 
 /* 希望・指定 */
-const REQ_MODES=[["off","休み希望"],["x","× 不可"],["tri","△ 避けたい"],["fixD","日勤指定"],["fixN","夜勤指定"],["clear","消す"]];
+const REQ_MODES=[["off","休み希望"],["paid","有給希望"],["x","× 不可"],["tri","△ 避けたい"],["fixD","日勤指定"],["fixN","夜勤指定"],["clear","消す"]];
 function renderRequests(){
   const wid=S.wardId,m=S.month,ns=staffOf(wid);
   if(!ns.length){$("#main").innerHTML=`<div class="empty"><h2>${esc(wardName(wid))}のスタッフ名簿がまだありません</h2><p class="muted">看護師長がスタッフを登録すると、ここで自分の名前を選んで入力できます。</p></div>`;return;}
@@ -704,6 +757,7 @@ function renderRequests(){
   $("#main").innerHTML=h;}
 function modeHelp(){
   const t={off:"日付を押すと、その日を休み希望（終日勤務不可）にします。前日の夜勤にも入りません。",
+    paid:"日付を押すと、その日を有給休暇の希望にします。休み希望と同じく必ず休みになり、公休の日数には数えません。",
     x:"「日」「夜」を押すと、その時間帯だけ勤務不可にします。日付を押すと両方です。",
     tri:"「日」「夜」を押すと、その時間帯を「できれば避けたい」にします。日付を押すと両方です。",
     fixD:"日付を押すと、その日を日勤に決めます（委員会・会議・研修など）。必ず日勤で組まれます。",
@@ -719,7 +773,7 @@ function calHtml(m,x){
   let h=`<div class="cal">${WD.map((w,i)=>`<div class="wh ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<mi.days[0].wd;i++)h+=`<div class="dc blank"></div>`;
   for(const dy of mi.days){const c=days[dy.d]||{},D=c.D||0,N=c.N||0;
-    const wk=x?.weekly?.[dy.wd]||"",tag=c.off?"休み希望":c.fix==="D"?(c.label||"日勤指定"):c.fix==="N"?(c.label||"夜勤指定"):"";
+    const wk=x?.weekly?.[dy.wd]||"",tag=c.off?(c.kind==="有"?"有給希望":"休み希望"):c.fix==="D"?(c.label||"日勤指定"):c.fix==="N"?(c.label||"夜勤指定"):"";
     const cls=c.off?"is-off":c.fix==="D"?"is-fixD":c.fix==="N"?"is-fixN":"";
     h+=`<div class="dc ${holidayOp(dy,p)||dy.hol?"sun":dy.wd===6?"sat":""} ${cls}"><button class="dbtn" data-action="req-day" data-d="${dy.d}" aria-label="${dy.d}日 ${esc(tag||"入力なし")}"><span>${dy.d}${dy.hol?"<small>祝</small>":""}</span><span class="tag">${esc(tag)}</span></button>
      ${!Object.keys(c).length&&wk?`<div class="weekly">毎週：${esc(WEEKLY[wk])}</div>`:""}
@@ -729,7 +783,8 @@ function calHtml(m,x){
 function applyReq(d,slot){
   const days=S.reqDraft.days,c={...(days[d]||{})},mode=S.reqMode;
   if(mode==="clear"){delete days[d];}
-  else if(mode==="off"){if(c.off)delete days[d];else days[d]={off:1};}
+  else if(mode==="off"){if(c.off&&!c.kind)delete days[d];else days[d]={off:1};}
+  else if(mode==="paid"){if(c.off&&c.kind==="有")delete days[d];else days[d]={off:1,kind:"有"};}
   else if(mode==="fixD"||mode==="fixN"){const f=mode==="fixD"?"D":"N";
     if(c.fix===f)delete days[d];else{const o={fix:f};if(S.reqLabel.trim())o.label=S.reqLabel.trim();days[d]=o;}}
   else{const v=mode==="x"?2:1;delete c.off;delete c.fix;delete c.label;
@@ -742,7 +797,7 @@ async function saveRequest(submit){
   const cur=S.requests[docId];
   const base=cur&&cur.staffId===dr.sid?{...cur}:{staffId:dr.sid,months:{}};
   base.wardId=staffById(dr.sid)?.wardId||S.wardId;base.staffId=dr.sid;
-  base.months={...(base.months||{}),[dr.m]:{days:dr.days,note:dr.note,submitted:!!submit,updatedAt:Date.now(),by:S.isAdmin?"manager":"self"}};
+  base.months={...(base.months||{}),[dr.m]:{...(base.months?.[dr.m]||{}),days:dr.days,note:dr.note,submitted:!!submit,updatedAt:Date.now(),by:S.isAdmin?"manager":"self"}};
   try{await Store.set("requests/"+docId,base);dr.dirty=false;toast(submit?"提出しました。":"一時保存しました。まだ提出はされていません。");render();}catch(e){writeError(e);}}
 
 /* スタッフ */
@@ -864,6 +919,7 @@ function rulesHtml(){
     <label class="f" for="mN1">夜勤上限：日勤・夜勤<span class="row"><input type="number" id="mN1" min="0" max="20" data-bind="maxNights.normal" value="${r.maxNights.normal}"> 回/月</span></label>
     <label class="f" for="mN2">夜勤上限：夜勤中心<span class="row"><input type="number" id="mN2" min="0" max="20" data-bind="maxNights.nightMain" value="${r.maxNights.nightMain}"> 回/月</span></label>
     <label class="f" for="mN3">夜勤上限：夜勤専従<span class="row"><input type="number" id="mN3" min="0" max="20" data-bind="maxNights.nightOnly" value="${r.maxNights.nightOnly}"> 回/月</span></label>
+    <label class="f" for="rSen">夜勤に必ず1名置く経験年数（0で使わない）<span class="row"><input type="number" id="rSen" min="0" max="30" data-bind="nightSeniorExp" value="${r.nightSeniorExp}"> 年以上</span></label>
     <label class="f" for="rGap">夜勤入りどうしの間隔（できるだけ）<span class="row"><input type="number" id="rGap" min="0" max="10" data-bind="nightGap" value="${r.nightGap}"> 日以上</span></label>
    </div>
    <label class="check"><input type="checkbox" id="rHalf" data-bind="nightHalf" ${r.nightHalf?"checked":""}> 一人ひとりの夜勤が月の前半・後半に偏らないようにする（差を1回以内に）</label>
@@ -874,10 +930,21 @@ function rulesHtml(){
     <label class="f" for="rOff">公休数の既定値<span class="row"><input type="number" id="rOff" min="0" max="20" data-bind="offDays" value="${r.offDays}"> 日/月</span></label>
     <label class="f" for="rDbl">2連休の回数（全員）<span class="row"><input type="number" id="rDbl" min="0" max="6" data-bind="doubleOff" value="${r.doubleOff}"> 回/月</span></label>
     <label class="f" for="rHolMin">日曜・祝日の休み（全員）<span class="row"><input type="number" id="rHolMin" min="0" max="10" data-bind="holidayOffMin" value="${r.holidayOffMin}"> 日以上/月</span></label>
+    <label class="f" for="rOffRun">連休の上限（休み希望が続く場合を除く。0で使わない）<span class="row"><input type="number" id="rOffRun" min="0" max="15" data-bind="maxOffRun" value="${r.maxOffRun}"> 日まで</span></label>
     <label class="f" for="rCon">連続勤務の上限（明けを含む）<span class="row"><input type="number" id="rCon" min="2" max="10" data-bind="maxConsec" value="${r.maxConsec}"> 日</span></label>
     <label class="f" for="rDl">希望の締切（前月の）<span class="row"><input type="number" id="rDl" min="1" max="28" data-bind="deadlineDay" value="${r.deadlineDay}"> 日</span></label>
    </div>
    <p class="hint">2連休は「休み」が2日続くことを1回と数えます（明けは含みません）。スタッフごとに回数を変えたいときは、スタッフ情報で個別に設定できます。</p>
+  </section>
+  <section class="panel"><div class="stack"><h2>何を優先するか</h2><p class="hint">必ず守る条件（夜勤の上限・明けの翌日の休み・指定日・休み希望）と、人数・リーダー・プリセプターは、ここの設定にかかわらず最優先です。そのうえで、条件どうしがぶつかったときにどれを重んじるかを病棟ごとに決めます。</p></div>
+   <div class="fgrid">
+    <label class="f" for="pr_off">公休数をそろえる<select id="pr_off" data-bind="prio.off"><option value="high" ${r.prio.off==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.off==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.off==="low"?"selected":""}>控えめ</option></select></label>
+    <label class="f" for="pr_dbl">2連休を確保する<select id="pr_dbl" data-bind="prio.dbl"><option value="high" ${r.prio.dbl==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.dbl==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.dbl==="low"?"selected":""}>控えめ</option></select></label>
+    <label class="f" for="pr_hol">日曜・祝日の休みを確保する<select id="pr_hol" data-bind="prio.hol"><option value="high" ${r.prio.hol==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.hol==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.hol==="low"?"selected":""}>控えめ</option></select></label>
+    <label class="f" for="pr_longOff">長い連休を避ける<select id="pr_longOff" data-bind="prio.longOff"><option value="high" ${r.prio.longOff==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.longOff==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.longOff==="low"?"selected":""}>控えめ</option></select></label>
+    <label class="f" for="pr_night">夜勤の偏りをなくし、間隔を空ける<select id="pr_night" data-bind="prio.night"><option value="high" ${r.prio.night==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.night==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.night==="low"?"selected":""}>控えめ</option></select></label>
+    <label class="f" for="pr_avoid">「できれば避けたい」に沿う<select id="pr_avoid" data-bind="prio.avoid"><option value="high" ${r.prio.avoid==="high"?"selected":""}>重視する</option><option value="mid" ${r.prio.avoid==="mid"?"selected":""}>ふつう</option><option value="low" ${r.prio.avoid==="low"?"selected":""}>控えめ</option></select></label>
+   </div>
   </section>
   <section class="panel"><div class="stack"><h2>新人とプリセプター</h2><p class="hint">新人が勤務する日は、同じ勤務帯に経験年数を満たす看護師（または担当プリセプター）を置きます。担当はスタッフ情報で一人ずつ決められます。</p></div>
    <label class="check"><input type="checkbox" id="pOn" data-bind="preceptor.enabled" ${r.preceptor.enabled?"checked":""}> プリセプター配置のルールを使う</label>
@@ -928,10 +995,10 @@ async function generate(){
   try{
     const res=await anneal(M,p=>{S.genP=p;updateProgress();});
     const{leaders,nightLeaders}=assignLeaders(M,res.g);
-    const rows={};M.staff.forEach((x,i)=>{let s="";for(let d=0;d<M.L;d++)s+=CH[res.g[i*M.L+d]];rows[x._id]=s;});
+    const rows={},kinds={};M.staff.forEach((x,i)=>{let s="";for(let d=0;d<M.L;d++){const k=i*M.L+d;s+=CH[res.g[k]];if(res.g[k]===0&&M.kindCh[k])(kinds[x._id]||(kinds[x._id]={}))[d+1]=M.kindCh[k];}rows[x._id]=s;});
     const was=schedOf(wid,m)?.status==="published";
     S.gen=false;
-    commitSched(key,{wardId:wid,month:m,rows,leaders,nightLeaders,offDays:off,status:"draft",generatedAt:Date.now(),updatedAt:Date.now(),edited:false});
+    commitSched(key,{wardId:wid,month:m,rows,kinds,leaders,nightLeaders,offDays:off,approvedBy:null,approvedAt:null,status:"draft",generatedAt:Date.now(),updatedAt:Date.now(),edited:false});
     toast(was?"作り直しました。公開を止めて下書きに戻しています。":"勤務表を作成しました。「確認が必要な点」を見て、必要ならマスを直してください。");
   }catch(e){S.gen=false;render();toast("作成中に問題が起きました。もう一度お試しください。");}}
 
@@ -942,7 +1009,7 @@ function openPop(btn){
   if(x&&x.role!=="care"&&x.leader&&!x.isNew)opts.push(["DL","日<sup>L</sup>","日勤リーダー","c-D"]);
   opts.push(["N","夜","夜勤入り（翌日を明けに）","c-N"]);
   if(prof().nightLeader&&x&&x.role!=="care"&&x.leader)opts.push(["NL","夜<sup>L</sup>","夜勤リーダー","c-N"]);
-  opts.push(["A","明","明け","c-A"],["X","休","休み","c-X"]);
+  opts.push(["A","明","明け","c-A"],["X","休","公休","c-X"],["XY","有","有給休暇","c-X"],["XT","特","特別休暇","c-X"]);
   pop.innerHTML=`<div class="ph">${esc(x?.name||"")}・${d+1}日</div>`+opts.map(o=>`<button data-action="pop" data-v="${o[0]}"><span class="c ${o[3]}">${o[1]}</span>${o[2]}</button>`).join("");
   pop.hidden=false;
   const r=btn.getBoundingClientRect(),w=pop.offsetWidth,hgt=pop.offsetHeight;
@@ -955,20 +1022,23 @@ function applyCell(v){
   const{key,sid,d}=S.pop;closePop();const src=S.override[key]||S.schedules[key];if(!src)return;
   const doc=clone(src);delete doc._id;doc.leaders=doc.leaders||{};doc.nightLeaders=doc.nightLeaders||{};
   const L=monthInfo(doc.month).L,r=(doc.rows[sid]||"").padEnd(L,"X").slice(0,L).split(""),was=r[d],k=String(d+1),akeReq=prof().akeOff==="required";
-  const code=v==="DL"?"D":v==="NL"?"N":v;r[d]=code;
+  const code=v==="DL"?"D":v==="NL"?"N":v==="XY"||v==="XT"?"X":v;r[d]=code;
+  doc.kinds=doc.kinds||{};const kk=doc.kinds[sid]||(doc.kinds[sid]={});
+  if(v==="XY")kk[k]="有";else if(v==="XT")kk[k]="特";else delete kk[k];
   if(v==="DL")doc.leaders[k]=sid;else if(doc.leaders[k]===sid&&code!=="D")delete doc.leaders[k];
   if(v==="NL")doc.nightLeaders[k]=sid;else if(doc.nightLeaders[k]===sid&&code!=="N")delete doc.nightLeaders[k];
-  if(code==="N"){if(d+1<L){r[d+1]="A";if(doc.leaders[String(d+2)]===sid)delete doc.leaders[String(d+2)];}
+  if(code==="N"){if(d+1<L){r[d+1]="A";delete kk[String(d+2)];if(doc.leaders[String(d+2)]===sid)delete doc.leaders[String(d+2)];}
     if(akeReq&&d+2<L&&r[d+2]==="D"){r[d+2]="X";if(doc.leaders[String(d+3)]===sid)delete doc.leaders[String(d+3)];}}
   if(was==="N"&&code!=="N"&&d+1<L&&r[d+1]==="A")r[d+1]="X";
   doc.rows[sid]=r.join("");doc.edited=true;doc.updatedAt=Date.now();
+  if(doc.approvedBy){doc.approvedBy=null;doc.approvedAt=null;doc.checks=null;toast("勤務表を直したため、承認を取り消しました。確認のうえ、もう一度承認してください。");}
   commitSched(key,doc);}
 
 async function exportCsv(){
   const wid=S.wardId,m=S.month,doc=schedOf(wid,m);if(!doc)return;const A=analyze(wid,m,doc),{M,g,dayStats,stats}=A,lead=doc.leaders||{},nl=doc.nightLeaders||{};
   const q=s=>`"${String(s).replace(/"/g,'""')}"`;
   const lines=[[q("職種"),q("氏名"),...M.mi.days.map(d=>q(`${d.d}(${WD[d.wd]})`)),q("日勤"),q("夜勤"),q("休み"),q("2連休"),q("日祝休")].join(",")];
-  M.staff.forEach((x,i)=>{const cells=[];for(let d=0;d<M.L;d++){const v=g[i*M.L+d];cells.push(q(LABEL[v]+((v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"L":"")));}
+  M.staff.forEach((x,i)=>{const cells=[];for(let d=0;d<M.L;d++){const v=g[i*M.L+d];cells.push(q(((v===0&&(doc.kinds||{})[x._id]?.[d+1])||LABEL[v])+((v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id)?"L":"")));}
     const s=stats[i];lines.push([q(ROLES[x.role||"nurse"]),q(x.name),...cells,s.D,s.N,s.off,s.pairs,s.hol].join(","));});
   lines.push([q(""),q("日勤 看護師"),...dayStats.map(s=>s.cD[0])].join(","));
   lines.push([q(""),q("夜勤 看護師"),...dayStats.map(s=>s.cN[0])].join(","));
@@ -980,7 +1050,7 @@ async function exportCsv(){
 
 
 /* ---------- Googleフォームの回答の取り込み ---------- */
-const FORM_COLS={off:"休み希望",unD:"日勤×",unN:"夜勤×",avD:"日勤△",avN:"夜勤△",fixD:"日勤指定",fixN:"夜勤指定"};
+const FORM_COLS={off:"休み希望",paid:"有給希望",unD:"日勤×",unN:"夜勤×",avD:"日勤△",avN:"夜勤△",fixD:"日勤指定",fixN:"夜勤指定"};
 const norm=s=>String(s||"").normalize("NFKC").replace(/\s/g,"");
 function monthKey(s){const mm=String(s||"").normalize("NFKC").match(/(\d{4})\D+(\d{1,2})/);return mm?`${mm[1]}-${pad(mm[2])}`:"";}
 function parseTs(s){const t=Date.parse(String(s||"").replace(/-/g,"/"));return isNaN(t)?0:t;}
@@ -1021,7 +1091,8 @@ function buildImport(rows,m,fileName){
     cDays.forEach(([ci,d])=>{const v=String(r[ci]||"").trim();if(!v)return;
       if(d>L){warns.push(`${d}日はこの月にないため無視します`);return;}
       const set=new Set(v.split(/[,;、]/).map(x=>x.trim()).filter(Boolean)),c={};
-      if(set.has(FORM_COLS.off)){c.off=1;if(set.size>1)warns.push(`${d}日：休み希望と他の項目が両方付いています（休み希望を優先）`);}
+      if(set.has(FORM_COLS.off)||set.has(FORM_COLS.paid)){c.off=1;if(set.has(FORM_COLS.paid))c.kind="有";
+        if(set.size>(set.has(FORM_COLS.off)&&set.has(FORM_COLS.paid)?2:1))warns.push(`${d}日：休み希望（有給）と他の項目が両方付いています（休みを優先）`);}
       else{
         if(set.has(FORM_COLS.fixD)&&set.has(FORM_COLS.fixN))warns.push(`${d}日：日勤指定と夜勤指定が両方付いています（指定なしにします）`);
         else if(set.has(FORM_COLS.fixD))c.fix="D";else if(set.has(FORM_COLS.fixN))c.fix="N";
@@ -1074,7 +1145,7 @@ async function commitImport(){
   S.impBusy=true;render();
   try{for(const r of list){const docId="mgr-"+r.sid,cur=S.requests[docId],x=staffById(r.sid);
       const base=cur?{...cur}:{staffId:r.sid,months:{}};base.staffId=r.sid;base.wardId=x?.wardId||r.wid;
-      base.months={...(base.months||{}),[I.m]:{days:r.days,note:r.note,submitted:true,updatedAt:r.ts||Date.now(),by:"form"}};
+      base.months={...(base.months||{}),[I.m]:{...(base.months?.[I.m]||{}),days:r.days,note:r.note,submitted:true,updatedAt:r.ts||Date.now(),by:"form"}};
       await Store.set("requests/"+docId,base);}
     toast(`${list.length}名分の希望・勤務指定を取り込みました。勤務表タブで作成できます。`);S.imp=null;}
   catch(e){writeError(e);}
@@ -1089,14 +1160,14 @@ h1{font-size:16pt;margin:0 0 2px}.sub{font-size:9pt;color:#444;margin:0 0 8px}ta
 th,td{border:1px solid #8a8a8a;text-align:center;padding:1px 0;height:19px;overflow:hidden;white-space:nowrap}th.nm,td.nm{width:96px;text-align:left;padding-left:4px}col.st{width:26px}
 .D{background:#fbe6b4}.N{background:#2e3d7c;color:#fff}.A{background:#e2e0f1}.X{color:#777}thead th{background:#f3f3f3}.sun{color:#b3413a}.sat{color:#2d5ca6}
 tr.grp th{background:#efe8f7;text-align:left;padding-left:4px}tfoot th,tfoot td{background:#f3f3f3}.short{color:#b0261e;font-weight:700}
-.legend{font-size:8.5pt;margin-top:6px;color:#333}.bar{margin-bottom:10px;font-size:10pt}.bar button{font-size:12pt;padding:6px 18px;margin-right:10px}@media print{.bar{display:none}}`;
+.legend{font-size:8.5pt;margin-top:6px;color:#333}.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}.stamps{border-collapse:collapse;width:auto;table-layout:auto}.stamps th{font-size:8pt;width:64px;height:16px;background:#f3f3f3}.stamps td{height:46px;width:64px}.bar{margin-bottom:10px;font-size:10pt}.bar button{font-size:12pt;padding:6px 18px;margin-right:10px}@media print{.bar{display:none}}`;
   let h=`<table><colgroup><col class="nm" style="width:96px">${mi.days.map(()=>"<col>").join("")}<col class="st"><col class="st"><col class="st"></colgroup><thead><tr><th class="nm">氏名</th>`;
   mi.days.forEach(dy=>{h+=`<th class="${cls(dy)}">${dy.d}<br>${WD[dy.wd]}${dy.hol?"祝":""}</th>`;});
   h+=`<th>日</th><th>夜</th><th>休</th></tr></thead><tbody>`;
   let care=false;
   staff.forEach((x,i)=>{if(M.role[i]===1&&!care){care=true;h+=`<tr class="grp"><th colspan="${L+4}">ケアワーカー</th></tr>`;}
     h+=`<tr><td class="nm">${esc(x.name)}</td>`;
-    for(let d=0;d<L;d++){const v=g[i*L+d],ld=(v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id);h+=`<td class="${CH[v]}">${LABEL[v]}${ld?"L":""}</td>`;}
+    for(let d=0;d<L;d++){const v=g[i*L+d],ld=(v===1&&lead[d+1]===x._id)||(v===2&&nl[d+1]===x._id);h+=`<td class="${CH[v]}">${(v===0&&(doc.kinds||{})[x._id]?.[d+1])||LABEL[v]}${ld?"L":""}</td>`;}
     h+=`<td>${stats[i].D}</td><td>${stats[i].N}</td><td>${stats[i].off}</td></tr>`;});
   h+=`</tbody><tfoot>`;
   const foot=(label,fn)=>{h+=`<tr><th class="nm">${label}</th>${dayStats.map(fn).join("")}<td colspan="3"></td></tr>`;};
@@ -1107,8 +1178,9 @@ tr.grp th{background:#efe8f7;text-align:left;padding-left:4px}tfoot th,tfoot td{
   const title=`${wardName(wid)} ${monthLabel(m)} 勤務表`;
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${css}</style></head><body>
 <div class="bar"><button onclick="window.print()">印刷する</button>用紙は A3 横を想定しています。印刷画面で「背景のグラフィック」をオンにすると色が付きます。</div>
-<h1>${esc(title)}</h1><p class="sub">${doc.status==="published"?"":"【下書き】"}出力 ${fmtTime(Date.now())}　公休数 ${num(doc.offDays,p.offDays)}日</p>${h}
-<p class="legend">日：日勤　日L：日勤リーダー　夜：夜勤入り　${p.nightLeader?"夜L：夜勤リーダー　":""}明：夜勤明け　休：休み　／　CW：ケアワーカー</p></body></html>`;}
+<div class="head"><div><h1>${esc(title)}</h1><p class="sub">${doc.approvedBy?`承認：${esc(doc.approvedBy)}（${fmtTime(doc.approvedAt)}）`:"【未承認】"}　出力 ${fmtTime(Date.now())}　公休数 ${num(doc.offDays,p.offDays)}日</p></div>
+<table class="stamps"><tr><th>作成者</th><th>師長</th><th>看護部長</th></tr><tr><td></td><td></td><td></td></tr></table></div>${h}
+<p class="legend">日：日勤　日L：日勤リーダー　夜：夜勤入り　${p.nightLeader?"夜L：夜勤リーダー　":""}明：夜勤明け　休：公休　有：有給休暇　特：特別休暇　／　CW：ケアワーカー</p></body></html>`;}
 async function exportPrint(){
   const wid=S.wardId,m=S.month,doc=schedOf(wid,m);if(!doc)return;
   const dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(()=>null):null;
@@ -1167,6 +1239,10 @@ document.addEventListener("click",ev=>{
       else{ta.focus();ta.select();toast("選択しました。Ctrl＋C（Macは⌘＋C）でコピーしてください。");}break;}
     case"cell":if(S.pop&&S.pop.sid===b.dataset.sid&&S.pop.d===Number(b.dataset.d))closePop();else openPop(b);break;
     case"pop":applyCell(b.dataset.v);break;
+    case"approve":{const nm=$("#apName").value.trim(),ok=CHECKS.every((_,i)=>$("#apC"+i).checked);
+      if(!ok){toast("確認の項目すべてにチェックを付けてください。");break;}if(!nm){toast("承認者の名前を入力してください。");$("#apName").focus();break;}
+      const key=schedKey(S.wardId,S.month),d=clone(schedOf(S.wardId,S.month));delete d._id;d.approvedBy=nm;d.approvedAt=Date.now();d.checks=CHECKS;commitSched(key,d);toast("承認しました。");break;}
+    case"unapprove":{const key=schedKey(S.wardId,S.month),d=clone(schedOf(S.wardId,S.month));delete d._id;d.approvedBy=null;d.approvedAt=null;d.checks=null;commitSched(key,d);toast("承認を取り消しました。");break;}
     case"req-mode":S.reqMode=b.dataset.v;document.querySelectorAll('[data-action="req-mode"]').forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.reqMode)));$("#reqModeHelp").innerHTML=modeHelp();break;
     case"req-day":applyReq(b.dataset.d,null);refreshCal();break;
     case"req-slot":applyReq(b.dataset.d,["x","tri"].includes(S.reqMode)?b.dataset.s:null);refreshCal();break;
@@ -1221,6 +1297,7 @@ document.addEventListener("change",ev=>{
   if(t.id==="monthInput")setMonth(t.value);
   else if(t.id==="wardSel")setWard(t.value);
   else if(t.id==="impFile")handleImportFile(t.files&&t.files[0]);
+  else if(t.dataset.carry!=null)setCarry(t.dataset.carry,t.value);
   else if(t.dataset.imp!=null&&S.imp){S.imp.rows[Number(t.dataset.imp)].include=t.checked;render();}
   else if(t.dataset.impsid!=null&&S.imp){const r=S.imp.rows[Number(t.dataset.impsid)];r.sid=t.value;dedupeImport(S.imp.rows);r.include=!!r.sid&&!r.old;render();}
   else if(t.id==="reqStaff"){S.reqSel=t.value||null;S.reqDraft=null;render();}
@@ -1228,6 +1305,7 @@ document.addEventListener("change",ev=>{
   else if(t.id==="fRole"){const care=t.value==="care";["fLeaderWrap","fNewWrap","fPrecWrap"].forEach(i=>{const el=document.getElementById(i);if(el)el.hidden=care;});}});
 document.addEventListener("submit",ev=>{if(ev.target.id==="staffForm"){ev.preventDefault();saveStaff();}});
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape")closePop();});
+document.addEventListener("toggle",ev=>{if(ev.target.id==="carryBox")S.carryOpen=ev.target.open;},true);
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(tabsFor().some(t=>t[0]===h)){S.tab=h;render();}});
 window.addEventListener("beforeunload",ev=>{if(S.reqDraft?.dirty||S.rulesDirty){ev.preventDefault();ev.returnValue="";}});
 
